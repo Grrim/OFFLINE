@@ -1,0 +1,303 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../services/persistence_service.dart';
+import '../../state/ending_state.dart';
+import '../../state/messages_state.dart';
+import '../../state/notes_state.dart';
+import '../../state/notifications_state.dart';
+import '../../state/phone_state.dart';
+import '../../state/photos_state.dart';
+import '../../widgets/status_bar.dart';
+
+/// Mostly cosmetic Settings app. The one functional control is the
+/// "Resetuj rozgrywkę" button at the bottom which wipes prefs and resets
+/// every state notifier so the demo can be replayed cleanly.
+class SettingsView extends StatelessWidget {
+  const SettingsView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF000000),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const StatusBar(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 16, 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_ios_new,
+                        color: Color(0xFF0A84FF), size: 22),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Ustawienia',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  _SectionLabel(text: 'OGÓLNE'),
+                  _SettingsGroup(rows: const [
+                    _SettingsRow(
+                      icon: Icons.airplanemode_active,
+                      iconBg: Color(0xFFFF9500),
+                      label: 'Tryb samolotowy',
+                      trailing: _Toggle(value: false),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.wifi,
+                      iconBg: Color(0xFF0A84FF),
+                      label: 'Wi-Fi',
+                      value: 'Niepołączono',
+                    ),
+                    _SettingsRow(
+                      icon: Icons.bluetooth,
+                      iconBg: Color(0xFF0A84FF),
+                      label: 'Bluetooth',
+                      value: 'Wyłączony',
+                    ),
+                    _SettingsRow(
+                      icon: Icons.signal_cellular_alt,
+                      iconBg: Color(0xFF34C759),
+                      label: 'Komórkowe',
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
+                  _SectionLabel(text: 'INFORMACJE'),
+                  _SettingsGroup(rows: const [
+                    _SettingsRow(
+                      icon: Icons.info_outline,
+                      iconBg: Color(0xFF8E8E93),
+                      label: 'Model',
+                      value: 'iPhone',
+                    ),
+                    _SettingsRow(
+                      icon: Icons.battery_full,
+                      iconBg: Color(0xFF34C759),
+                      label: 'Bateria',
+                      value: '37%',
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
+                  _SectionLabel(text: 'DEWELOPER'),
+                  _SettingsGroup(rows: [
+                    _SettingsRow(
+                      icon: Icons.refresh,
+                      iconBg: const Color(0xFFFF453A),
+                      label: 'Resetuj rozgrywkę',
+                      destructive: true,
+                      onTap: () => _confirmReset(context),
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
+                  const Center(
+                    child: Text(
+                      'Zaginiona - demo',
+                      style: TextStyle(color: Colors.white24, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmReset(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text('Resetować rozgrywkę?',
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Wszystkie odkryte ślady, odblokowane notatki i konwersacje zostaną '
+          'wymazane. Telefon zostanie ponownie zablokowany.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Anuluj',
+                style: TextStyle(color: Color(0xFF0A84FF))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Resetuj',
+                style: TextStyle(color: Color(0xFFFF453A))),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true || !context.mounted) return;
+
+    // Clear prefs first, then reset every notifier. Order matters: ending
+    // overlay reads EndingState; PhoneState.reset() flips back to lock
+    // screen, which yanks the navigator back to the lock route.
+    await PersistenceService.instance.clearAll();
+    if (!context.mounted) return;
+    context.read<EndingState>().reset();
+    context.read<MessagesState>().reset();
+    context.read<NotesState>().reset();
+    context.read<PhotosState>().reset();
+    context.read<NotificationsState>().reset();
+    context.read<PhoneState>().reset();
+  }
+}
+
+// ---------------- helpers ----------------
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 0, 6),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white60,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.rows});
+  final List<_SettingsRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            rows[i],
+            if (i != rows.length - 1)
+              const Padding(
+                padding: EdgeInsets.only(left: 56),
+                child: Divider(height: 1, color: Color(0xFF2C2C2E)),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.iconBg,
+    required this.label,
+    this.value,
+    this.trailing,
+    this.destructive = false,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconBg;
+  final String label;
+  final String? value;
+  final Widget? trailing;
+  final bool destructive;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive ? const Color(0xFFFF453A) : Colors.white;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Icon(icon, color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(color: color, fontSize: 15),
+              ),
+            ),
+            if (value != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  value!,
+                  style: const TextStyle(color: Colors.white54, fontSize: 14),
+                ),
+              ),
+            if (trailing != null) trailing!,
+            if (onTap != null && trailing == null && value == null)
+              const Icon(Icons.chevron_right,
+                  color: Colors.white24, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Toggle extends StatelessWidget {
+  const _Toggle({required this.value});
+  final bool value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 26,
+      decoration: BoxDecoration(
+        color: value ? const Color(0xFF34C759) : const Color(0xFF3A3A3C),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Container(
+        width: 22,
+        height: 22,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}

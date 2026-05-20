@@ -1,0 +1,28 @@
+name: zaginiona
+description: "Zaginiona - a found phone text-based puzzle/horror game."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  google_fonts: ^6.2.1
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Place wallpapers and other static images inside assets/images/.
+  # The lock screen wallpaper should be assets/images/lockscreen_wallpaper.jpg.
+  # The home screen wallpaper should be assets/images/home_wallpaper.jpg.
+  assets:
+    - assets/images/
