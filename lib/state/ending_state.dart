@@ -38,39 +38,57 @@ class EndingState extends ChangeNotifier {
   static const Map<String, GameEnding> catalog = {
     'caught': GameEnding(
       id: 'caught',
-      title: 'ZAKOŃCZENIE 1: ZŁAPANY',
+      title: 'ZŁAPANY',
       subtitle: 'Trzeba było nie kłamać.',
-      epilogue: 'Samochód podjechał po 4 minuty. Telefon N. nigdy nie '
-          'trafił do prokuratury. Helion-Bud kontynuuje wycinki do dziś.',
+      epilogue: 'Samochód podjechał po 4 minuty. Zabrali telefon. '
+          'Zabrali ciebie.\n\n'
+          'Helion-Bud kontynuuje wycinki. Komendant K. dostał awans. '
+          'Mama N. wciąż dzwoni na numer, który już nie istnieje.\n\n'
+          'Nikt nigdy nie znajdzie tego telefonu.\n'
+          'Nikt nigdy nie znajdzie N.',
       accentColor: Color(0xFFFF453A),
       icon: Icons.gpp_bad,
     ),
     'escape': GameEnding(
       id: 'escape',
-      title: 'ZAKOŃCZENIE 2: UCIECZKA',
-      subtitle: 'Gra toczy się dalej.',
-      epilogue: 'Uciekłeś z telefonem. Szeryf wie, że masz dowody. '
-          'N. wciąż jest zaginiona. Ktoś musi dokończyć to, co zaczęła.',
+      title: 'UCIECZKA',
+      subtitle: 'Biegasz. Oni też.',
+      epilogue: 'Uciekłeś z telefonem w kieszeni. Szeryf wie, że masz '
+          'dowody. Wie, jak wyglądasz.\n\n'
+          'N. wciąż jest zaginiona. Anita czeka na materiały, które '
+          'nigdy nie dotarły. Mama płacze co noc.\n\n'
+          'Masz wszystko, żeby to zakończyć.\n'
+          'Pytanie: czy ktoś cię znajdzie pierwszy?',
       accentColor: Color(0xFF34C759),
       icon: Icons.directions_run,
     ),
     'truth': GameEnding(
       id: 'truth',
-      title: 'ZAKOŃCZENIE 3: PRAWDA',
-      subtitle: 'Jutro o tym napiszą wszystkie gazety.',
-      epilogue: 'Artykuł Anity Z. ukazał się w sobotnim wydaniu. '
-          'Komendant K. został zawieszony. Prokuratura wszczęła '
-          'śledztwo. N. wciąż nie odnaleziono.',
+      title: 'PRAWDA',
+      subtitle: 'Jutro rano cała Polska się dowie.',
+      epilogue: 'Artykuł Anity Z. trafił do druku o 6:00. Pierwsza '
+          'strona. Tytuł: "CISZA W LESIE".\n\n'
+          'O 8:00 prokuratura wszczęła śledztwo. O 9:00 komendant K. '
+          'został zawieszony. O 12:00 Helion-Bud wydał oświadczenie: '
+          '"Nie komentujemy."\n\n'
+          'N. wciąż nie odnaleziono.\n'
+          'Ale teraz szukają ją wszyscy.',
       accentColor: Color(0xFFFFCC00),
       icon: Icons.article,
     ),
     'dawn': GameEnding(
       id: 'dawn',
-      title: 'ZAKOŃCZENIE 4: ŚWIT',
+      title: 'ŚWIT',
       subtitle: 'Telefon dzwoni. To prokurator.',
-      epilogue: 'Prokurator dyżurny przyjął materiały o 5:48. O 7:00 '
-          'CBŚP weszło do siedziby Helion-Bud. Komendant K. został '
-          'zatrzymany w drodze do pracy. N. odnaleziono żywą.',
+      epilogue: 'Prokurator dyżurny przyjął materiały o 5:48. Wydział '
+          'Spraw Wewnętrznych ruszył natychmiast.\n\n'
+          'O 7:00 CBŚP weszło do siedziby Helion-Bud. O 7:15 '
+          'komendant K. został zatrzymany w drodze do pracy. '
+          'Nie zdążył nawet zadzwonić po prawnika.\n\n'
+          'O 9:23 znaleziono N. Żywą. W piwnicy magazynu w sektorze '
+          'C-2.\n\n'
+          'Pierwszą rzeczą, którą powiedziała, było:\n'
+          '"Wiedziałam, że ktoś znajdzie ten telefon."',
       accentColor: Color(0xFF5AC8FA),
       icon: Icons.wb_twilight,
     ),

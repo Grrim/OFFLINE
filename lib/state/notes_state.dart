@@ -72,6 +72,12 @@ class NotesState extends ChangeNotifier {
       _persistence?.setBool(_kHookFired, true);
       onLockedNoteUnlocked?.call(noteId, fromColdLoad: false);
     }
+
+    // Fire for plan_b too — activates the witness thread.
+    if (noteId == 'plan_b') {
+      onLockedNoteUnlocked?.call(noteId, fromColdLoad: false);
+    }
+
     return true;
   }
 

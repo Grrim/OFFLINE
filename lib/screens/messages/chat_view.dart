@@ -55,7 +55,8 @@ class _ChatViewState extends State<ChatView> {
     }
 
     // Auto-scroll whenever the message count changes (new NPC line, new player line).
-    final visibleCount = thread.messages.length + (messages.isNpcTyping ? 1 : 0);
+    final isTypingHere = messages.isTypingInThread(widget.threadId);
+    final visibleCount = thread.messages.length + (isTypingHere ? 1 : 0);
     if (visibleCount != _lastSeenMessageCount) {
       // Play message received sound when a new NPC message appears.
       if (visibleCount > _lastSeenMessageCount && _lastSeenMessageCount > 0) {
@@ -85,9 +86,9 @@ class _ChatViewState extends State<ChatView> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 12, vertical: 12),
                 itemCount: thread.messages.length +
-                    (messages.isNpcTyping ? 1 : 0),
+                    (isTypingHere ? 1 : 0),
                 itemBuilder: (context, i) {
-                  if (i == thread.messages.length && messages.isNpcTyping) {
+                  if (i == thread.messages.length && isTypingHere) {
                     return const _TypingBubble();
                   }
                   final msg = thread.messages[i];
@@ -127,7 +128,7 @@ class _ChatViewState extends State<ChatView> {
             _ChoiceBar(
               choices: choices,
               isInteractive: thread.isInteractive,
-              isTyping: messages.isNpcTyping,
+              isTyping: isTypingHere,
               onPick: (c) {
                 HapticFeedback.selectionClick();
                 messages.selectChoice(c);

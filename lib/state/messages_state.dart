@@ -118,6 +118,7 @@ class MessagesState extends ChangeNotifier {
   final Map<String, ChatThread> _threads = {};
   String? _activeThreadId;
   bool _isNpcTyping = false;
+  String? _typingThreadId;
 
   NotificationsState? _notifications;
   void Function(String threadId)? _bannerNavigator;
@@ -160,6 +161,10 @@ class MessagesState extends ChangeNotifier {
 
   bool get isNpcTyping => _isNpcTyping;
 
+  /// True if NPC is typing specifically in the given thread.
+  bool isTypingInThread(String threadId) =>
+      _isNpcTyping && _typingThreadId == threadId;
+
   int get totalUnread =>
       _threads.values.fold(0, (acc, t) => acc + t.unreadCount);
 
@@ -194,7 +199,8 @@ class MessagesState extends ChangeNotifier {
     if (t == null || !t.isInteractive || t.dialogueGraph == null) {
       return const [];
     }
-    if (_isNpcTyping) return const [];
+    // Only hide choices if NPC is typing in THIS specific thread.
+    if (_isNpcTyping && _typingThreadId == t.id) return const [];
     final node = t.dialogueGraph![t.currentNodeId];
     return node?.choices ?? const [];
   }
@@ -442,11 +448,22 @@ class MessagesState extends ChangeNotifier {
     String text, {
     Duration delay = _typingDelay,
   }) async {
-    final thread = _threads[threadId];
-    if (thread == null) return;
+    // Auto-create thread if it doesn't exist (e.g. stalker).
+    if (!_threads.containsKey(threadId)) {
+      _threads[threadId] = ChatThread(
+        id: threadId,
+        contactName: threadId == 'stalker' ? '+48 *** *** ***' : threadId,
+        avatarColor: threadId == 'stalker' ? 0xFF000000 : null,
+        messages: [],
+        isInteractive: false,
+      );
+    }
+
+    final thread = _threads[threadId]!;
 
     if (_activeThreadId == threadId) {
       _isNpcTyping = true;
+      _typingThreadId = threadId;
       notifyListeners();
     }
 
@@ -463,7 +480,10 @@ class MessagesState extends ChangeNotifier {
       _raiseBanner(thread, text);
     }
 
-    _isNpcTyping = false;
+    if (_typingThreadId == threadId) {
+      _isNpcTyping = false;
+      _typingThreadId = null;
+    }
     _save();
     notifyListeners();
   }
@@ -494,6 +514,7 @@ class MessagesState extends ChangeNotifier {
 
     for (final line in node.npcMessages) {
       _isNpcTyping = true;
+      _typingThreadId = thread.id;
       notifyListeners();
 
       await Future.delayed(_typingDelayForText(line));
@@ -510,6 +531,7 @@ class MessagesState extends ChangeNotifier {
       }
 
       _isNpcTyping = false;
+      _typingThreadId = null;
       _save();
       notifyListeners();
     }
@@ -540,6 +562,7 @@ class MessagesState extends ChangeNotifier {
     _threads.clear();
     _activeThreadId = null;
     _isNpcTyping = false;
+    _typingThreadId = null;
     _seed();
     notifyListeners();
   }
@@ -775,5 +798,9 @@ class MessagesState extends ChangeNotifier {
     _threads[mama.id] = mama;
     _threads[nieznany.id] = nieznany;
     _threads[dziennikarka.id] = dziennikarka;
+
+    // Stalker — anonymous threatening thread. Non-interactive.
+    // Messages are delivered by timed hooks in main.dart.
+    // NOT added to _threads yet — will appear only when first message arrives.
   }
 }

@@ -40,28 +40,54 @@ class MessagesListView extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.edit_outlined,
-                      color: Color(0xFF0A84FF), size: 24),
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          const SnackBar(
+                            content: Text('Nie można tworzyć nowych wiadomości'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                    },
+                    child: const Icon(Icons.edit_outlined,
+                        color: Color(0xFF0A84FF), size: 24),
+                  ),
                 ],
               ),
             ),
-            // ---- Search field (decorative, like a real OS) ----
+            // ---- Search field (tapping shows "no results" — feels real) ----
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                height: 36,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1C1C1E),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.search, color: Colors.white38, size: 18),
-                    SizedBox(width: 8),
-                    Text('Szukaj',
-                        style: TextStyle(color: Colors.white38, fontSize: 15)),
-                  ],
+              child: GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('Brak wyników'),
+                        duration: Duration(milliseconds: 800),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                },
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1C1C1E),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.search, color: Colors.white38, size: 18),
+                      SizedBox(width: 8),
+                      Text('Szukaj',
+                          style: TextStyle(color: Colors.white38, fontSize: 15)),
+                    ],
+                  ),
                 ),
               ),
             ),

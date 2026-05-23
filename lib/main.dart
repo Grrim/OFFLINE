@@ -33,7 +33,7 @@ Future<void> main() async {
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   // Edge-to-edge mode — hides navigation bar but allows swipe gestures.
   SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.edgeToEdge,
+    SystemUiMode.immersive,
   );
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -83,6 +83,10 @@ class ZaginionaApp extends StatelessWidget {
             notes!.onLockedNoteUnlocked = (unlockedId, {fromColdLoad = false}) {
               if (unlockedId == 'secret') {
                 _triggerSheriffHook(messages, fromColdLoad: fromColdLoad);
+              }
+              if (unlockedId == 'plan_b' && !fromColdLoad) {
+                // Plan B unlocked — activate the witness thread (Tomasz).
+                messages.triggerWitnessDialog();
               }
             };
             return notes;
@@ -173,11 +177,12 @@ Future<void> _triggerSheriffHook(MessagesState messages,
     return;
   }
 
-  // 1) Sheriff's threat lands first (3s typing delay).
+  // 1) Sheriff's threat lands after a dramatic pause (20s) — gives
+  // the player time to read the secret note before the confrontation.
   await messages.deliverNpcMessage(
     'szeryf',
     'Wiem, że grzebiesz w tym telefonie. Odłóż go, zanim sam po niego przyjadę.',
-    delay: const Duration(seconds: 3),
+    delay: const Duration(seconds: 20),
   );
 
   // 2) 1s after the Sheriff banner slides down, Mama panics.
@@ -219,7 +224,7 @@ class _PhoneShell extends StatefulWidget {
   State<_PhoneShell> createState() => _PhoneShellState();
 }
 
-class _PhoneShellState extends State<_PhoneShell> {
+class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
   final _navKey = GlobalKey<NavigatorState>();
   bool _wasUnlocked = false;
   bool _tensionActive = false;
@@ -228,8 +233,17 @@ class _PhoneShellState extends State<_PhoneShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ringerTimer?.cancel();
     super.dispose();
+  }
+
+  /// Re-apply fullscreen when app resumes (Android resets UI mode).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+    }
   }
 
   /// Cyclic "phone is ringing" vibration while the Sheriff has unread
@@ -252,6 +266,7 @@ class _PhoneShellState extends State<_PhoneShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
@@ -289,13 +304,10 @@ class _PhoneShellState extends State<_PhoneShell> {
         notes.replayHookForColdLoad();
       }
 
-      // DISABLED: Chapter 2 trigger.
-      // context.read<FilesState>().onChapter2Threshold = () { ... };
-
-      if (context.read<ChapterState>().isChapter2) {
-        context
-            .read<MessagesState>()
-            .triggerWitnessDialog(fromColdLoad: true);
+      // Cold-load: if Plan B was already unlocked, ensure Tomasz thread exists.
+      final planB = notes.noteById('plan_b');
+      if (planB != null && !planB.isLocked) {
+        context.read<MessagesState>().triggerWitnessDialog(fromColdLoad: true);
       }
 
       // Reactive: Nieznany reacts when player inspects the clue photo.
@@ -311,6 +323,23 @@ class _PhoneShellState extends State<_PhoneShell> {
           );
         }
       };
+
+      // Reminder: if player hasn't opened photos after 90s, nudge them.
+      Future.delayed(const Duration(seconds: 90), () {
+        if (!mounted) return;
+        if (!context.read<PhoneState>().isUnlocked) return;
+        final photos = context.read<PhotosState>();
+        if (!photos.hasInspected('forest_night')) {
+          final msgs = context.read<MessagesState>();
+          if (msgs.hasCompletedIntro) {
+            msgs.deliverNpcMessage(
+              'nieznany',
+              'Pospiesz się. Wejdź w Zdjęcia. Szukaj tego z zeszłej nocy.',
+              delay: const Duration(seconds: 2),
+            );
+          }
+        }
+      });
 
       // Reactive: Nieznany reacts when player opens first file.
       context.read<FilesState>().onFirstFileOpened = () {
@@ -384,6 +413,99 @@ class _PhoneShellState extends State<_PhoneShell> {
     });
   }
 
+  /// Creepy moments — unsettling system notifications at intervals.
+  void _scheduleCreepyMoments() {
+    // 1:30 — camera access
+    Future.delayed(const Duration(seconds: 90), () {
+      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      context.read<NotificationsState>().push(AppNotification(
+        id: 'creepy_camera',
+        appName: 'System',
+        title: 'Aparat',
+        body: 'Aplikacja "Nieznana" uzyskała dostęp do aparatu',
+        icon: Icons.camera_alt,
+        iconBg: const Color(0xFFFF453A),
+      ));
+    });
+
+    // 4:00 — microphone
+    Future.delayed(const Duration(minutes: 4), () {
+      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      context.read<NotificationsState>().push(AppNotification(
+        id: 'creepy_mic',
+        appName: 'Prywatność',
+        title: 'Mikrofon aktywny',
+        body: 'Mikrofon jest używany w tle',
+        icon: Icons.mic,
+        iconBg: const Color(0xFFFF9500),
+      ));
+    });
+
+    // 5:30 — someone tried to unlock
+    Future.delayed(const Duration(minutes: 5, seconds: 30), () {
+      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      context.read<NotificationsState>().push(AppNotification(
+        id: 'creepy_unlock',
+        appName: 'Bezpieczeństwo',
+        title: 'Próba logowania',
+        body: 'Nieudana próba zdalnego odblokowania urządzenia',
+        icon: Icons.security,
+        iconBg: const Color(0xFFFF453A),
+      ));
+      // Trigger a glitch burst for extra scare.
+      AudioService.instance.playSfx(GameSfx.glitchBurst);
+    });
+
+    // Stalker messages — anonymous threatening texts at intervals.
+    _scheduleStalkerMessages();
+  }
+
+  /// Anonymous stalker sends creepy messages at timed intervals.
+  /// Non-interactive thread — player can only read, not respond.
+  void _scheduleStalkerMessages() {
+    final msgs = context.read<MessagesState>();
+
+    // 1:00 — first message
+    Future.delayed(const Duration(minutes: 1), () {
+      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      msgs.deliverNpcMessage(
+        'stalker',
+        'Widzę cię.',
+        delay: const Duration(seconds: 1),
+      );
+    });
+
+    // 3:00 — second message
+    Future.delayed(const Duration(minutes: 3), () {
+      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      msgs.deliverNpcMessage(
+        'stalker',
+        'Nie powinieneś był tego włączać.',
+        delay: const Duration(seconds: 1),
+      );
+    });
+
+    // 5:00 — third message
+    Future.delayed(const Duration(minutes: 5), () {
+      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      msgs.deliverNpcMessage(
+        'stalker',
+        'Wiem gdzie jesteś. Szary budynek. Drugie piętro.',
+        delay: const Duration(seconds: 1),
+      );
+    });
+
+    // 7:00 — fourth message (most disturbing)
+    Future.delayed(const Duration(minutes: 7), () {
+      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      msgs.deliverNpcMessage(
+        'stalker',
+        'Odłóż telefon. Ostatnie ostrzeżenie.',
+        delay: const Duration(seconds: 1),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // Boot sequence — show once on app start.
@@ -415,6 +537,37 @@ class _PhoneShellState extends State<_PhoneShell> {
       _scheduleWifiConnect();
       _scheduleGhostNotification();
       _scheduleLowBatteryAlert();
+      _scheduleCreepyMoments();
+
+      // Immediate nudge — Nieznany's unread message raises a banner
+      // so the player knows to check Messages first.
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        final msgs = context.read<MessagesState>();
+        final nieznany = msgs.threadById('nieznany');
+        if (nieznany != null && nieznany.unreadCount > 0) {
+          context.read<NotificationsState>().push(AppNotification(
+            id: 'nudge_nieznany',
+            appName: 'Wiadomości',
+            title: 'Nieznany',
+            body: nieznany.lastMessage?.text ?? '',
+            icon: Icons.chat_bubble,
+            iconBg: const Color(0xFF34C759),
+            onTap: () {
+              // Navigate to chat if banner is tapped.
+              final nav = _navKey.currentState;
+              if (nav == null) return;
+              msgs.openThread('nieznany');
+              nav.push(MaterialPageRoute(
+                builder: (_) => ChatView(threadId: 'nieznany'),
+              )).then((_) {
+                if (!mounted) return;
+                msgs.closeThread();
+              });
+            },
+          ));
+        }
+      });
     }
 
     // Audio: tension track when Sheriff is active.

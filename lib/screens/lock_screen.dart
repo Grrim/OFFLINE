@@ -75,7 +75,7 @@ class _LockScreenState extends State<LockScreen>
         children: [
           // Same wallpaper as home screen — like a real phone.
           Image.asset(
-            'assets/images/home_wallpaper.jog',
+            'assets/images/home_wallpaper.jpg',
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(
               decoration: const BoxDecoration(

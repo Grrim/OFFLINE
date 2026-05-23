@@ -136,13 +136,17 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
   }
 
   void _comingSoon(BuildContext context, String label) {
+    final msg = label == 'Udostępnianie'
+        ? 'Brak połączenia — nie można udostępnić'
+        : 'Nie masz uprawnień do usunięcia tego zdjęcia';
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('$label - niedostępne'),
-          duration: const Duration(milliseconds: 900),
+          content: Text(msg),
+          duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF2C2C2E),
         ),
       );
   }

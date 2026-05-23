@@ -44,8 +44,21 @@ class NotesView extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.create_outlined,
-                      color: Color(0xFFFFCC00), size: 24),
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          const SnackBar(
+                            content: Text('Nie można edytować — telefon zablokowany'),
+                            duration: Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                    },
+                    child: const Icon(Icons.create_outlined,
+                        color: Color(0xFFFFCC00), size: 24),
+                  ),
                 ],
               ),
             ),

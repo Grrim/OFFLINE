@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../state/files_state.dart';
 import '../state/messages_state.dart';
 import '../state/notes_state.dart';
-import '../state/phone_state.dart';
 import '../state/photos_state.dart';
 import '../widgets/status_bar.dart';
 import 'browser/browser_view.dart';
@@ -101,7 +100,7 @@ class HomeScreen extends StatelessWidget {
             ? (ctx) => Navigator.of(ctx).push(
                   MaterialPageRoute(builder: (_) => const BrowserView()),
                 )
-            : (ctx) => _showLocked(ctx, 'Safari', 'Brak połączenia z siecią'),
+            : (ctx) => _showLocked(ctx, 'Safari', 'Historia pusta — najpierw sprawdź Zdjęcia'),
       ),
       _AppEntry(
         label: 'Kalendarz',
@@ -126,9 +125,8 @@ class HomeScreen extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           // ---- Wallpaper ----
-          // Place your home wallpaper at: assets/images/home_wallpaper.jpg
           Image.asset(
-            'assets/images/home_wallpaper.jog',
+            'assets/images/home_wallpaper.jpg',
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(
               decoration: const BoxDecoration(
@@ -149,14 +147,6 @@ class HomeScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Expanded(child: StatusBar()),
-                    // Lock button so we can return to the lock screen
-                    // during playtests.
-                    IconButton(
-                      onPressed: () => context.read<PhoneState>().lock(),
-                      icon: const Icon(Icons.lock_outline,
-                          color: Colors.white70),
-                      tooltip: 'Zablokuj',
-                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
