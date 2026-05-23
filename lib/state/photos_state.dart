@@ -145,6 +145,16 @@ class PhotosState extends ChangeNotifier {
         placeholderIcon: Icons.pets,
         placeholderColors: [Color(0xFFFFB870), Color(0xFF8C5A2E)],
       ),
+      const PhotoItem(
+        id: 'dawn',
+        assetPath: 'assets/images/photos/dawn.jpg',
+        dateString: 'Dzisiaj, 05:48',
+        location: 'Most Łazienkowski, Warszawa',
+        camera: 'iPhone - Tylny aparat 26 mm f/1.8',
+        placeholderIcon: Icons.wb_twilight,
+        placeholderColors: [Color(0xFFFF9F7A), Color(0xFF6E2A4F)],
+        isCluePhoto: false,
+      ),
     ]);
   }
 }

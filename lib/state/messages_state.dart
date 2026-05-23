@@ -49,6 +49,7 @@ class DialogueNode {
     this.choices = const [],
     this.autoNextNodeId,
     this.triggersEndingId,
+    this.triggersJournalistHook = false,
   });
 
   final String id;
@@ -59,6 +60,10 @@ class DialogueNode {
   /// When set, the ending with this id is triggered after the NPC lines on
   /// this node have been delivered (with a 3s dramatic pause).
   final String? triggersEndingId;
+
+  /// When true, the journalist (Anita) thread upgrades to interactive
+  /// after the NPC line on this node, opening the path to the TRUTH ending.
+  final bool triggersJournalistHook;
 }
 
 class ChatThread {
@@ -99,6 +104,14 @@ class MessagesState extends ChangeNotifier {
   static const Duration _typingDelay = Duration(milliseconds: 1500);
   static const Duration _endingDelay = Duration(seconds: 3);
 
+  /// Calculates a realistic typing delay based on message length.
+  /// Short messages (~20 chars) get ~1.2s, long ones (~150 chars) get ~3s.
+  static Duration _typingDelayForText(String text) {
+    final chars = text.length.clamp(10, 200);
+    final ms = 800 + (chars * 12); // 800ms base + 12ms per character
+    return Duration(milliseconds: ms.clamp(1000, 3500));
+  }
+
   static const String _kThreadProgress = 'messages.progress.v1';
 
   final PersistenceService? _persistence;
@@ -112,6 +125,11 @@ class MessagesState extends ChangeNotifier {
   /// Wired from the phone shell. Called when a dialogue node carries
   /// `triggersEndingId`, after the NPC line + the dramatic pause.
   void Function(String endingId)? onEndingTriggered;
+
+  /// Wired from the phone shell. Called when a dialogue node sets
+  /// `triggersJournalistHook` to true. Used to upgrade Anita's thread
+  /// to interactive and deliver her opener.
+  void Function()? onJournalistHookTriggered;
 
   // ---------- Wiring ----------
 
@@ -220,6 +238,192 @@ class MessagesState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Upgrades Anita's thread to interactive with the TRUTH-path dialogue
+  /// graph. Idempotent — safe to call on cold-load too.
+  Future<void> triggerJournalistDialog({bool fromColdLoad = false}) async {
+    final graph = <String, DialogueNode>{
+      'opener': const DialogueNode(
+        id: 'opener',
+        choices: [
+          DialogueChoice(
+            text: 'Anita, to ja. N. zniknęła. Mam wszystkie jej dowody '
+                'na Helion-Bud i komendanta. Bierzecie to?',
+            nextNodeId: 'confirm',
+          ),
+          DialogueChoice(
+            text: 'Anita, jesteś tam? Sprawa jest gorąca, mam mało czasu.',
+            nextNodeId: 'confirm',
+          ),
+        ],
+      ),
+      'confirm': const DialogueNode(
+        id: 'confirm',
+        npcMessages: [
+          'O Boże. Wiedziałam, że coś jej się stało.',
+          'Wysyłaj wszystko co masz. Zdjęcia, notatki, nazwiska. Mam '
+              'bezpieczny kanał.',
+        ],
+        choices: [
+          DialogueChoice(
+            text: 'Wysyłam: zdjęcie z lasu, notatka N., wzmianki '
+                'o komendancie K. i Helion-Budzie.',
+            nextNodeId: 'send',
+          ),
+        ],
+      ),
+      'send': const DialogueNode(
+        id: 'send',
+        npcMessages: [
+          'Mam wszystko. Otwieram redaktora naczelnego.',
+          'Idziemy na pierwszą stronę. Jutro o 6:00 trafia do druku.',
+          'N. by była z ciebie dumna. Schowaj się gdzieś bezpiecznie '
+              'do rana.',
+        ],
+        triggersEndingId: 'truth',
+      ),
+    };
+
+    final journalistThread = ChatThread(
+      id: 'dziennikarka',
+      contactName: 'Anita Z. (Gazeta)',
+      avatarColor: 0xFFFFCC00,
+      messages: const [],
+      dialogueGraph: graph,
+      currentNodeId: 'opener',
+      isInteractive: true,
+    );
+
+    ensureThread(journalistThread);
+
+    if (fromColdLoad) return;
+
+    // Deliver an opener from Anita as a notification to draw the
+    // player into her chat.
+    await deliverNpcMessage(
+      'dziennikarka',
+      'Boże, kto to jest? Gdzie jest N.? Odpowiedz mi natychmiast.',
+      delay: const Duration(seconds: 2),
+    );
+  }
+
+  /// Chapter 2 hook — adds the Witness (Tomasz W.) thread with a
+  /// dialogue graph leading to the DAWN ending. The witness is
+  /// referenced in the second locked note ("Plan B").
+  Future<void> triggerWitnessDialog({bool fromColdLoad = false}) async {
+    final graph = <String, DialogueNode>{
+      'opener': const DialogueNode(
+        id: 'opener',
+        choices: [
+          DialogueChoice(
+            text: 'Tomasz? Drzewo, które padło na dachu.',
+            nextNodeId: 'recognise',
+          ),
+          DialogueChoice(
+            text: 'Tomasz, mam telefon N. Coś jej się stało.',
+            nextNodeId: 'cold_open',
+          ),
+        ],
+      ),
+      'cold_open': const DialogueNode(
+        id: 'cold_open',
+        npcMessages: [
+          'Skąd to wiesz? Skąd masz jej numer?',
+          'Zanim cokolwiek powiem, podaj mi hasło, które ze sobą '
+              'ustaliliśmy. N. mówiła ci?',
+        ],
+        choices: [
+          DialogueChoice(
+            text: 'Drzewo, które padło na dachu.',
+            nextNodeId: 'recognise',
+          ),
+          DialogueChoice(
+            text: 'Nie znam żadnego hasła. Po prostu mi pomóż.',
+            nextNodeId: 'reject',
+          ),
+        ],
+      ),
+      'reject': const DialogueNode(
+        id: 'reject',
+        npcMessages: [
+          'To nie tak działa. Jeśli nie znasz hasła, nie znałeś N.',
+          'Schowaj telefon. Jutro kup nową kartę i wyjedź z miasta.',
+          'Powodzenia.',
+        ],
+        // Soft fail — no ending, but the witness vanishes from the chat.
+      ),
+      'recognise': const DialogueNode(
+        id: 'recognise',
+        npcMessages: [
+          'Dobra. Czyli jednak.',
+          'Słuchaj uważnie - mam wszystko. Nagrania, kopie faktur, '
+              'zdjęcia. Wszystko, co zebrała plus to, co ja zebrałem '
+              'przez 2 lata po tym jak mnie wyrzucili z HB.',
+          'Jest tylko jedna ścieżka, która działa. Centralna komenda. '
+              'Prokurator dyżurny. Nie powiatowa. Nie miejska. '
+              'CENTRALNA.',
+        ],
+        choices: [
+          DialogueChoice(
+            text: 'Idę. Daj mi 2 godziny.',
+            nextNodeId: 'commit',
+          ),
+          DialogueChoice(
+            text: 'A jak komenda centralna też jest skompromitowana?',
+            nextNodeId: 'doubt',
+          ),
+        ],
+      ),
+      'doubt': const DialogueNode(
+        id: 'doubt',
+        npcMessages: [
+          'Nie jest. Sprawdziłem. K. nie ma tam żadnych powiązań.',
+          'Poza tym nie masz innej opcji. Albo idziesz, albo to się '
+              'wszystko rozejdzie po nas.',
+        ],
+        choices: [
+          DialogueChoice(
+            text: 'Dobra. Idę.',
+            nextNodeId: 'commit',
+          ),
+        ],
+      ),
+      'commit': const DialogueNode(
+        id: 'commit',
+        npcMessages: [
+          'Wyślij mi natychmiast wszystkie dowody przez Signal. Numer '
+              'masz w jej notatce.',
+          'Spotkamy się przed gmachem. Ja będę z dziennikarką.',
+          '...',
+          'Dzwoni do mnie prokurator. Mówi że właśnie dostał materiały '
+              'mailowo. Idą.',
+          'Udało się.',
+        ],
+        triggersEndingId: 'dawn',
+      ),
+    };
+
+    final witnessThread = ChatThread(
+      id: 'tomasz',
+      contactName: 'T.W. (sąsiad)',
+      avatarColor: 0xFF5AC8FA,
+      messages: const [],
+      dialogueGraph: graph,
+      currentNodeId: 'opener',
+      isInteractive: true,
+    );
+
+    ensureThread(witnessThread);
+
+    if (fromColdLoad) return;
+
+    await deliverNpcMessage(
+      'tomasz',
+      'Wiem że masz jej telefon. Widziałem światło w jej oknie wczoraj '
+          'wieczorem - ktoś tam był. To nie była ona. Odezwij się.',
+      delay: const Duration(seconds: 4),
+    );
+  }
+
   /// Schedules an NPC line on a thread without requiring the player to be
   /// inside that chat.
   Future<void> deliverNpcMessage(
@@ -281,7 +485,7 @@ class MessagesState extends ChangeNotifier {
       _isNpcTyping = true;
       notifyListeners();
 
-      await Future.delayed(_typingDelay);
+      await Future.delayed(_typingDelayForText(line));
 
       thread.messages.add(ChatMessage(
         sender: MessageSender.npc,
@@ -310,6 +514,12 @@ class MessagesState extends ChangeNotifier {
     if (endingId != null) {
       await Future.delayed(_endingDelay);
       onEndingTriggered?.call(endingId);
+    }
+
+    // Journalist hook — opens the path to the TRUTH ending.
+    if (node.triggersJournalistHook) {
+      await Future.delayed(const Duration(seconds: 2));
+      onJournalistHookTriggered?.call();
     }
   }
 
@@ -400,6 +610,33 @@ class MessagesState extends ChangeNotifier {
       messages: [
         ChatMessage(
           sender: MessageSender.npc,
+          text: 'Pamiętasz, żeby wziąć leki na ciśnienie?',
+          timestamp: now.subtract(const Duration(days: 3, hours: 8)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'Mruczek znowu rozdrapał kanapę. Ten kot mnie wykończy.',
+          timestamp: now.subtract(const Duration(days: 2, hours: 14)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'Kochanie, Pani Halinka pytała o ciebie. Zadzwoń do niej '
+              'jak będziesz miała chwilę.',
+          timestamp: now.subtract(const Duration(days: 2, hours: 6)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'Słyszałaś, że Helion-Bud znowu wycina drzewa w Kabackim? '
+              'Babcia mówi, że to skandal.',
+          timestamp: now.subtract(const Duration(days: 1, hours: 20)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'Czemu nie odpisujesz? Wszystko w porządku?',
+          timestamp: now.subtract(const Duration(days: 1, hours: 12)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
           text: 'Gdzie jesteś?',
           timestamp: now.subtract(const Duration(days: 1, hours: 6)),
         ),
@@ -407,6 +644,12 @@ class MessagesState extends ChangeNotifier {
           sender: MessageSender.npc,
           text: 'Odezwij się do mnie!',
           timestamp: now.subtract(const Duration(hours: 18)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'Dzwoniłam do twojego biura. Powiedzieli, że nie pojawiłaś '
+              'się od piątku. Co się dzieje?',
+          timestamp: now.subtract(const Duration(hours: 10)),
         ),
       ],
       isInteractive: false,
@@ -472,7 +715,43 @@ class MessagesState extends ChangeNotifier {
       isInteractive: true,
     );
 
+    // Dziennikarka — quiet thread that becomes the player's lifeline
+    // for the TRUTH ending. Her last message references Helion-Bud
+    // before the player even knows what that is.
+    final dziennikarka = ChatThread(
+      id: 'dziennikarka',
+      contactName: 'Anita Z. (Gazeta)',
+      avatarColor: 0xFFFFCC00,
+      messages: [
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'Cześć N., mam materiał gotowy do publikacji. Brakuje mi '
+              'tylko twojego zielonego światła i tych dokumentów co '
+              'mówiłaś.',
+          timestamp: now.subtract(const Duration(days: 4, hours: 3)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'Redaktor naczelny się waha — boi się procesu od Helion-Bud. '
+              'Daj mi cokolwiek czarno na białym i puszczamy to w sobotę.',
+          timestamp: now.subtract(const Duration(days: 3, hours: 11)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'Jesteś?',
+          timestamp: now.subtract(const Duration(days: 2, hours: 4)),
+        ),
+        ChatMessage(
+          sender: MessageSender.npc,
+          text: 'N., zaczynam się martwić. Odezwij się jak tylko możesz.',
+          timestamp: now.subtract(const Duration(hours: 30)),
+        ),
+      ],
+      isInteractive: false,
+    );
+
     _threads[mama.id] = mama;
     _threads[nieznany.id] = nieznany;
+    _threads[dziennikarka.id] = dziennikarka;
   }
 }

@@ -119,6 +119,14 @@ class NotesState extends ChangeNotifier {
         pin: '7309',
       ),
       NoteItem(
+        id: 'plan_b',
+        title: 'PLAN B (ostateczny)',
+        body: _planBBody,
+        dateString: 'Wczoraj, 23:58',
+        isLocked: true,
+        pin: '1422',
+      ),
+      NoteItem(
         id: 'shopping',
         title: 'Zakupy',
         body:
@@ -146,6 +154,20 @@ class NotesState extends ChangeNotifier {
             'Cafe Relaks: gosc.relaks',
         dateString: '2 maja 2026',
       ),
+      NoteItem(
+        id: 'spotkanie',
+        title: 'Spotkanie z Anitą - notatki',
+        body:
+            'Sobota, Kawiarnia Relaks, 16:00\n\n'
+            '- A. potrzebuje skanów faktur (mam je w chmurze)\n'
+            '- pytała o nazwiska — dałam jej tylko "K." na razie\n'
+            '- jej redaktor naczelny się waha (proces!)\n'
+            '- ustaliłyśmy: jak coś, kontakt przez Signal, nie SMS\n'
+            '- jej numer: zachowany w kontaktach jako "Anita Z. (Gazeta)"\n\n'
+            'Czuję, że ktoś nas obserwował. Kelner za długo stał przy '
+            'naszym stoliku. Może paranoja. Może nie.',
+        dateString: '11 maja 2026',
+      ),
     ]);
   }
 
@@ -162,7 +184,29 @@ Wczoraj wieczorem śledził mnie samochód spod komendy. Zatrzymał się dwie ul
 
 Jeżeli coś mi się stanie - to nie był wypadek. Wszystkie dowody są w skrytce 14B na dworcu. Klucz schowałam w doniczce z fikusem.
 
+Jeśli ktokolwiek to czyta i wie co robi: napisz do Anity Z. z Gazety. Ona ma już połowę materiału, brakuje jej tylko mojego potwierdzenia. Powiedz jej "fikus 14B" - zrozumie.
+
 I jeszcze jedno: NIE UFAJ NIKOMU Z MUNDURU. Szczególnie szeryfowi. To on odbiera koperty.
+
+- N.
+''';
+
+  static const String _planBBody = '''
+Jeśli czytasz tę notatkę, to znaczy że pierwszej nie wystarczyło.
+
+Zostawiam to jako absolutny ostateczny plan. Nikt poza mną tego nie wie:
+
+NIE PRZEKAZUJ DOWODÓW POLICJI. NIE MA TEGO W PROTOKOLE.
+
+Zamiast tego idź do osoby, która jest w mojej liście kontaktów jako "T.W. (sąsiad)". To Tomasz, mieszka pod numerem 14, drugie piętro. On wie wszystko. Ma kopię nagrania, ma kopię zdjęć. Pracował kiedyś w Helion-Bud zanim zwolnili go za to, że zaczął zadawać pytania.
+
+Hasło, którym się rozpozna ze mną: "drzewo, które padło na dachu". Tylko on i ja je znamy.
+
+Jeśli on też zniknął - schowaj telefon. Idź na komendę CENTRALNĄ w Warszawie (nie powiatową), poproś rozmowę z prokuratorem dyżurnym. Powiedz że masz dowody w sprawie Helion-Bud i że masz powody sądzić, że lokalne komendy są skompromitowane.
+
+Plan B jest po to, żeby nigdy nie został użyty. Ale jeśli czytasz, to znaczy że zawiodły wszystkie poprzednie.
+
+Przepraszam, że to na ciebie spadło.
 
 - N.
 ''';

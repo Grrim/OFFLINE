@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/audio_service.dart';
+
 /// A reusable iOS-style numeric PIN keypad.
 ///
 /// Stateless from the caller's perspective: you supply a [title], optional
@@ -103,6 +105,7 @@ class _NumericKeypadState extends State<NumericKeypad>
   void _digit(String d) {
     if (_busy || _pin.length >= widget.pinLength) return;
     HapticFeedback.lightImpact();
+    AudioService.instance.playSfx(GameSfx.keypadTap);
     setState(() {
       _pin += d;
       _error = null;
@@ -133,9 +136,11 @@ class _NumericKeypadState extends State<NumericKeypad>
 
     if (ok) {
       // Caller will likely navigate away on success.
+      AudioService.instance.playSfx(GameSfx.unlockSuccess);
       setState(() => _busy = false);
     } else {
       HapticFeedback.heavyImpact();
+      AudioService.instance.playSfx(GameSfx.keypadError);
       _shakeCtrl.forward(from: 0);
       setState(() => _error = widget.errorMessage);
       await Future.delayed(const Duration(milliseconds: 600));
@@ -304,7 +309,7 @@ class _Grid extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 if (bottomLeftLabel != null && onBottomLeftTap != null)
-                  _Key.text(label: bottomLeftLabel!, onTap: onBottomLeftTap!)
+                  _Key.text(textLabel: bottomLeftLabel!, onTap: onBottomLeftTap!)
                 else
                   const SizedBox(width: 72, height: 72),
                 _Key.digit(digit: '0', letters: '', onTap: () => onDigit('0')),

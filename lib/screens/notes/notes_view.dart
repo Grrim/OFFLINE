@@ -362,20 +362,123 @@ class _NoteReaderScreen extends StatelessWidget {
                           const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      note.body,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        height: 1.5,
-                      ),
-                    ),
+                    _FormattedNoteBody(body: note.body),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Renders note body with highlighted keywords for dramatic effect.
+/// Lines in ALL CAPS or containing key phrases get accent coloring.
+class _FormattedNoteBody extends StatelessWidget {
+  const _FormattedNoteBody({required this.body});
+  final String body;
+
+  static final _highlightPatterns = [
+    'NIE UFAJ',
+    'HELION-BUD',
+    'HELION-Bud',
+    'Helion-Bud',
+    'komendant',
+    'Komendant',
+    'szeryf',
+    'Szeryf',
+    'szeryfowi',
+    'NIE PRZEKAZUJ',
+    'CENTRALNA',
+    'centralną',
+    'skrytce 14B',
+    'fikus',
+    '7309',
+    '1422',
+    '14:22',
+    'Anita',
+    'Anity Z.',
+    'drzewo, które padło na dachu',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = body.split('\n');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final line in lines)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: _buildLine(line),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLine(String line) {
+    if (line.trim().isEmpty) return const SizedBox(height: 12);
+
+    // Full-line ALL CAPS → red accent (warnings).
+    final trimmed = line.trim();
+    if (trimmed == trimmed.toUpperCase() &&
+        trimmed.length > 3 &&
+        RegExp(r'[A-ZĄĆĘŁŃÓŚŹŻ]').hasMatch(trimmed)) {
+      return Text(
+        line,
+        style: const TextStyle(
+          color: Color(0xFFFF6B6B),
+          fontSize: 15,
+          height: 1.5,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+    }
+
+    // Build a RichText with highlighted keywords.
+    final spans = <TextSpan>[];
+    var remaining = line;
+
+    while (remaining.isNotEmpty) {
+      int? earliestIdx;
+      String? matchedPattern;
+
+      for (final pattern in _highlightPatterns) {
+        final idx = remaining.indexOf(pattern);
+        if (idx != -1 && (earliestIdx == null || idx < earliestIdx)) {
+          earliestIdx = idx;
+          matchedPattern = pattern;
+        }
+      }
+
+      if (earliestIdx == null || matchedPattern == null) {
+        spans.add(TextSpan(text: remaining));
+        break;
+      }
+
+      if (earliestIdx > 0) {
+        spans.add(TextSpan(text: remaining.substring(0, earliestIdx)));
+      }
+      spans.add(TextSpan(
+        text: matchedPattern,
+        style: const TextStyle(
+          color: Color(0xFFFFCC00),
+          fontWeight: FontWeight.w600,
+        ),
+      ));
+      remaining = remaining.substring(earliestIdx + matchedPattern.length);
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          height: 1.5,
+        ),
+        children: spans,
       ),
     );
   }

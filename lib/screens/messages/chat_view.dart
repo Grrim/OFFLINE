@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/audio_service.dart';
 import '../../state/messages_state.dart';
 import '../../widgets/status_bar.dart';
 
@@ -55,6 +57,14 @@ class _ChatViewState extends State<ChatView> {
     // Auto-scroll whenever the message count changes (new NPC line, new player line).
     final visibleCount = thread.messages.length + (messages.isNpcTyping ? 1 : 0);
     if (visibleCount != _lastSeenMessageCount) {
+      // Play message received sound when a new NPC message appears.
+      if (visibleCount > _lastSeenMessageCount && _lastSeenMessageCount > 0) {
+        final lastMsg = thread.messages.isNotEmpty ? thread.messages.last : null;
+        if (lastMsg != null && lastMsg.sender == MessageSender.npc) {
+          AudioService.instance.playSfx(GameSfx.messageReceived);
+          HapticFeedback.lightImpact();
+        }
+      }
       _lastSeenMessageCount = visibleCount;
       _autoScroll();
     }
@@ -81,7 +91,36 @@ class _ChatViewState extends State<ChatView> {
                     return const _TypingBubble();
                   }
                   final msg = thread.messages[i];
-                  return _MessageBubble(message: msg);
+
+                  // Day separator — show date header when day changes.
+                  Widget? daySeparator;
+                  if (i == 0 ||
+                      !_sameDay(thread.messages[i - 1].timestamp,
+                          msg.timestamp)) {
+                    daySeparator = _DaySeparator(date: msg.timestamp);
+                  }
+
+                  final isLastPlayer = msg.sender == MessageSender.player &&
+                      (i == thread.messages.length - 1 ||
+                          thread.messages[i + 1].sender == MessageSender.npc);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (daySeparator != null) daySeparator,
+                      _MessageBubble(message: msg),
+                      if (isLastPlayer)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 4, top: 2, bottom: 4),
+                          child: Text(
+                            'Dostarczono',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
                 },
               ),
             ),
@@ -89,7 +128,10 @@ class _ChatViewState extends State<ChatView> {
               choices: choices,
               isInteractive: thread.isInteractive,
               isTyping: messages.isNpcTyping,
-              onPick: (c) => messages.selectChoice(c),
+              onPick: (c) {
+                HapticFeedback.selectionClick();
+                messages.selectChoice(c);
+              },
             ),
           ],
         ),
@@ -104,12 +146,22 @@ class _ChatHeader extends StatelessWidget {
   const _ChatHeader({required this.thread});
   final ChatThread thread;
 
+  String _lastSeenText() {
+    if (thread.id == 'szeryf') return 'online';
+    if (thread.id == 'nieznany') return 'online';
+    if (thread.id == 'dziennikarka') return 'ostatnio: 3 dni temu';
+    if (thread.id == 'mama') return 'ostatnio: 10 min temu';
+    if (thread.id == 'tomasz') return 'online';
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = Color(thread.avatarColor ?? 0xFF3A3A3C);
     final initial = thread.contactName.isNotEmpty
         ? thread.contactName.characters.first.toUpperCase()
         : '?';
+    final lastSeen = _lastSeenText();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 12, 8),
@@ -143,10 +195,22 @@ class _ChatHeader extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (lastSeen.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    lastSeen,
+                    style: TextStyle(
+                      color: lastSeen == 'online'
+                          ? const Color(0xFF34C759)
+                          : Colors.white38,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(width: 36), // visual balance with back button
+          const SizedBox(width: 36),
         ],
       ),
     );
@@ -155,13 +219,36 @@ class _ChatHeader extends StatelessWidget {
 
 // ----- Bubbles -----
 
-class _MessageBubble extends StatelessWidget {
+class _MessageBubble extends StatefulWidget {
   const _MessageBubble({required this.message});
   final ChatMessage message;
 
   @override
+  State<_MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<_MessageBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _fadeCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isPlayer = message.sender == MessageSender.player;
+    final isPlayer = widget.message.sender == MessageSender.player;
     final bg = isPlayer ? const Color(0xFF0A84FF) : const Color(0xFF2C2C2E);
     final align = isPlayer ? Alignment.centerRight : Alignment.centerLeft;
     final radius = BorderRadius.only(
@@ -171,22 +258,32 @@ class _MessageBubble extends StatelessWidget {
       bottomRight: Radius.circular(isPlayer ? 4 : 18),
     );
 
-    return Align(
-      alignment: align,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: bg, borderRadius: radius),
-          child: Text(
-            message.text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              height: 1.3,
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut),
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: Offset(isPlayer ? 0.1 : -0.1, 0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut)),
+        child: Align(
+          alignment: align,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(color: bg, borderRadius: radius),
+              child: Text(
+                widget.message.text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  height: 1.3,
+                ),
+              ),
             ),
           ),
         ),
@@ -342,6 +439,47 @@ class _ChoiceButton extends StatelessWidget {
         child: Text(
           label,
           style: const TextStyle(fontSize: 14, height: 1.3),
+        ),
+      ),
+    );
+  }
+}
+
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+class _DaySeparator extends StatelessWidget {
+  const _DaySeparator({required this.date});
+  final DateTime date;
+
+  String _format(DateTime t) {
+    final now = DateTime.now();
+    if (_sameDay(t, now)) return 'Dzisiaj';
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (_sameDay(t, yesterday)) return 'Wczoraj';
+    const days = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Ndz'];
+    const months = [
+      'sty', 'lut', 'mar', 'kwi', 'maj', 'cze',
+      'lip', 'sie', 'wrz', 'paź', 'lis', 'gru',
+    ];
+    return '${days[t.weekday - 1]}, ${t.day} ${months[t.month - 1]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            _format(date),
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
         ),
       ),
     );

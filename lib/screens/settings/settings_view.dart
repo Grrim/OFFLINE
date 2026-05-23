@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/audio_service.dart';
 import '../../services/persistence_service.dart';
+import '../../state/browser_state.dart';
+import '../../state/chapter_state.dart';
 import '../../state/ending_state.dart';
+import '../../state/files_state.dart';
 import '../../state/messages_state.dart';
 import '../../state/notes_state.dart';
 import '../../state/notifications_state.dart';
@@ -50,29 +54,35 @@ class SettingsView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   _SectionLabel(text: 'OGÓLNE'),
-                  _SettingsGroup(rows: const [
+                  _SettingsGroup(rows: [
                     _SettingsRow(
                       icon: Icons.airplanemode_active,
-                      iconBg: Color(0xFFFF9500),
+                      iconBg: const Color(0xFFFF9500),
                       label: 'Tryb samolotowy',
-                      trailing: _Toggle(value: false),
+                      trailing: const _Toggle(value: false),
                     ),
                     _SettingsRow(
                       icon: Icons.wifi,
-                      iconBg: Color(0xFF0A84FF),
+                      iconBg: const Color(0xFF0A84FF),
                       label: 'Wi-Fi',
                       value: 'Niepołączono',
                     ),
                     _SettingsRow(
                       icon: Icons.bluetooth,
-                      iconBg: Color(0xFF0A84FF),
+                      iconBg: const Color(0xFF0A84FF),
                       label: 'Bluetooth',
                       value: 'Wyłączony',
                     ),
                     _SettingsRow(
                       icon: Icons.signal_cellular_alt,
-                      iconBg: Color(0xFF34C759),
+                      iconBg: const Color(0xFF34C759),
                       label: 'Komórkowe',
+                    ),
+                    _SettingsRow(
+                      icon: Icons.volume_off,
+                      iconBg: const Color(0xFFFF2D55),
+                      label: 'Wycisz dźwięki',
+                      trailing: _MuteToggle(),
                     ),
                   ]),
                   const SizedBox(height: 24),
@@ -153,11 +163,16 @@ class SettingsView extends StatelessWidget {
     // screen, which yanks the navigator back to the lock route.
     await PersistenceService.instance.clearAll();
     if (!context.mounted) return;
+    await AudioService.instance.reset();
+    if (!context.mounted) return;
     context.read<EndingState>().reset();
     context.read<MessagesState>().reset();
     context.read<NotesState>().reset();
     context.read<PhotosState>().reset();
     context.read<NotificationsState>().reset();
+    context.read<FilesState>().reset();
+    context.read<BrowserState>().reset();
+    context.read<ChapterState>().reset();
     context.read<PhoneState>().reset();
   }
 }
@@ -296,6 +311,34 @@ class _Toggle extends StatelessWidget {
         decoration: const BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+class _MuteToggle extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final muted = context.watch<AudioService>().isMuted;
+    return GestureDetector(
+      onTap: () => context.read<AudioService>().toggleMute(),
+      child: Container(
+        width: 42,
+        height: 26,
+        decoration: BoxDecoration(
+          color: muted ? const Color(0xFF34C759) : const Color(0xFF3A3A3C),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        alignment: muted ? Alignment.centerRight : Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
         ),
       ),
     );

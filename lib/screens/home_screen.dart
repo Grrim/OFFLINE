@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../state/browser_state.dart';
+import '../state/files_state.dart';
 import '../state/messages_state.dart';
 import '../state/notes_state.dart';
 import '../state/phone_state.dart';
 import '../state/photos_state.dart';
 import '../widgets/status_bar.dart';
+import 'browser/browser_view.dart';
+import 'files/files_view.dart';
 import 'messages/messages_list_view.dart';
 import 'notes/notes_view.dart';
 import 'photos/photos_grid_view.dart';
@@ -28,6 +32,9 @@ class HomeScreen extends StatelessWidget {
         .select<NotesState, bool>((s) => s.notes.any((n) => n.isLocked));
     // Show a "1" badge once the player has the clue but hasn't unlocked it yet.
     final notesBadge = (cluePhotoSeen && hasLockedNote) ? 1 : 0;
+
+    final filesUnread =
+        context.select<FilesState, int>((s) => s.unreadCount);
 
     final apps = <_AppEntry>[
       _AppEntry(
@@ -55,6 +62,23 @@ class HomeScreen extends StatelessWidget {
         badge: notesBadge,
         onOpen: (ctx) => Navigator.of(ctx).push(
           MaterialPageRoute(builder: (_) => const NotesView()),
+        ),
+      ),
+      _AppEntry(
+        label: 'Pliki',
+        icon: Icons.folder,
+        color: const Color(0xFF0A84FF),
+        badge: filesUnread,
+        onOpen: (ctx) => Navigator.of(ctx).push(
+          MaterialPageRoute(builder: (_) => const FilesView()),
+        ),
+      ),
+      _AppEntry(
+        label: 'Safari',
+        icon: Icons.public,
+        color: const Color(0xFF1E90FF),
+        onOpen: (ctx) => Navigator.of(ctx).push(
+          MaterialPageRoute(builder: (_) => const BrowserView()),
         ),
       ),
       _AppEntry(
@@ -111,9 +135,9 @@ class HomeScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: GridView.count(
                       crossAxisCount: 2,
-                      mainAxisSpacing: 28,
-                      crossAxisSpacing: 28,
-                      childAspectRatio: 0.85,
+                      mainAxisSpacing: 22,
+                      crossAxisSpacing: 22,
+                      childAspectRatio: 0.9,
                       children: [
                         for (final app in apps)
                           _AppIcon(

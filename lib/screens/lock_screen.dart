@@ -17,9 +17,14 @@ class LockScreen extends StatefulWidget {
   State<LockScreen> createState() => _LockScreenState();
 }
 
-class _LockScreenState extends State<LockScreen> {
+class _LockScreenState extends State<LockScreen>
+    with SingleTickerProviderStateMixin {
   Timer? _clockTicker;
   late DateTime _now;
+
+  // Subtle breathing animation on the dark overlay — makes the lock
+  // screen feel alive even without real wallpaper assets.
+  late final AnimationController _breatheCtrl;
 
   @override
   void initState() {
@@ -28,11 +33,16 @@ class _LockScreenState extends State<LockScreen> {
     _clockTicker = Timer.periodic(const Duration(seconds: 10), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
+    _breatheCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _clockTicker?.cancel();
+    _breatheCtrl.dispose();
     super.dispose();
   }
 
@@ -78,38 +88,61 @@ class _LockScreenState extends State<LockScreen> {
               ),
             ),
           ),
-          Container(color: Colors.black.withValues(alpha: 0.35)),
+          AnimatedBuilder(
+            animation: _breatheCtrl,
+            builder: (_, __) => Container(
+              color: Colors.black.withValues(
+                alpha: 0.30 + 0.08 * _breatheCtrl.value,
+              ),
+            ),
+          ),
 
           SafeArea(
-            child: Column(
-              children: [
-                const StatusBar(),
-                const SizedBox(height: 24),
-                Text(
-                  _formatBigTime(_now),
-                  style: const TextStyle(
-                    fontSize: 84,
-                    fontWeight: FontWeight.w200,
-                    letterSpacing: -2,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  _formatLongDate(_now),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.white70,
-                  ),
-                ),
-                const Spacer(),
-                NumericKeypad(
-                  title: 'Wprowadź kod',
-                  onSubmit: (pin) async {
-                    return context.read<PhoneState>().tryUnlock(pin);
-                  },
-                ),
-                const SizedBox(height: 32),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Scale keypad to fit — on small screens reduce key size.
+                final availableHeight = constraints.maxHeight;
+                // Reserve space for status bar + clock + date.
+                final headerHeight = 120.0;
+                final keypadMaxHeight = availableHeight - headerHeight;
+                // Standard keypad needs ~420px. Scale down if needed.
+                final scale = (keypadMaxHeight / 420).clamp(0.65, 1.0);
+
+                return Column(
+                  children: [
+                    const StatusBar(),
+                    SizedBox(height: 8 * scale),
+                    Text(
+                      _formatBigTime(_now),
+                      style: TextStyle(
+                        fontSize: 72 * scale,
+                        fontWeight: FontWeight.w200,
+                        letterSpacing: -2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      _formatLongDate(_now),
+                      style: TextStyle(
+                        fontSize: 15 * scale,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const Spacer(),
+                    Transform.scale(
+                      scale: scale,
+                      alignment: Alignment.topCenter,
+                      child: NumericKeypad(
+                        title: 'Wprowadź kod',
+                        onSubmit: (pin) async {
+                          return context.read<PhoneState>().tryUnlock(pin);
+                        },
+                      ),
+                    ),
+                    SizedBox(height: 12 * scale),
+                  ],
+                );
+              },
             ),
           ),
         ],
