@@ -31,10 +31,15 @@ Future<void> main() async {
   await PersistenceService.init();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  // Edge-to-edge mode — hides navigation bar but allows swipe gestures.
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+  );
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Colors.black,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarIconBrightness: Brightness.light,
   ));
 
   runApp(const ZaginionaApp());
@@ -85,7 +90,7 @@ class ZaginionaApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Zaginiona',
+        title: 'OFFLINE',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.dark,
         home: const _PhoneShell(),
@@ -186,6 +191,23 @@ Future<void> _triggerSheriffHook(MessagesState messages,
         'przy oknach. Gdzie jesteś?! Odpowiedz mi!',
     delay: const Duration(seconds: 1),
   );
+
+  // 3) Nieznany warns the player — don't rush the Sheriff response.
+  await messages.deliverNpcMessage(
+    'nieznany',
+    'Widzę, że Szeryf się odezwał. NIE odpowiadaj mu pochopnie. '
+        'Przeczytaj najpierw wszystko co masz — notatki, pliki, historię '
+        'przeglądarki. Każda odpowiedź ma konsekwencje.',
+    delay: const Duration(seconds: 4),
+  );
+
+  // 4) Hint about the second locked note.
+  await messages.deliverNpcMessage(
+    'nieznany',
+    'Jeszcze jedno — N. zostawiła drugą zamkniętą notatkę. "Plan B". '
+        'Kod do niej jest ukryty w jednym z plików. Szukaj godziny.',
+    delay: const Duration(seconds: 8),
+  );
 }
 
 /// Top-level swap between lock and home + the global notification banner +
@@ -254,8 +276,7 @@ class _PhoneShellState extends State<_PhoneShell> {
         context.read<EndingState>().trigger(endingId);
       };
 
-      // Journalist hook — opens the TRUTH path. Triggered by the
-      // Sheriff dialogue's third choice ("Już za późno...").
+      // Journalist hook — opens the TRUTH path.
       context.read<MessagesState>().onJournalistHookTriggered = () {
         if (!mounted) return;
         context.read<MessagesState>().triggerJournalistDialog();
@@ -268,21 +289,98 @@ class _PhoneShellState extends State<_PhoneShell> {
         notes.replayHookForColdLoad();
       }
 
-      // Files threshold → advance to chapter 2.
-      // DISABLED: Chapter 2 is locked for now. Uncomment to enable.
-      // context.read<FilesState>().onChapter2Threshold = () {
-      //   if (!mounted) return;
-      //   context.read<ChapterState>().advanceToChapter2();
-      //   context.read<MessagesState>().triggerWitnessDialog();
-      // };
+      // DISABLED: Chapter 2 trigger.
+      // context.read<FilesState>().onChapter2Threshold = () { ... };
 
-      // Cold-load: if we're already in chapter 2, re-attach the witness
-      // thread so its dialogue graph is restored.
       if (context.read<ChapterState>().isChapter2) {
         context
             .read<MessagesState>()
             .triggerWitnessDialog(fromColdLoad: true);
       }
+
+      // Reactive: Nieznany reacts when player inspects the clue photo.
+      context.read<PhotosState>().onClueInspected = (photoId) {
+        if (!mounted) return;
+        if (photoId == 'forest_night') {
+          context.read<MessagesState>().deliverNpcMessage(
+            'nieznany',
+            'Widzę, że znalazłeś to zdjęcie. Kod jest w komentarzu EXIF. '
+                'Użyj go w Notatkach — jest tam coś, co N. zostawiła na '
+                'wypadek gdyby zniknęła.',
+            delay: const Duration(seconds: 5),
+          );
+        }
+      };
+
+      // Reactive: Nieznany reacts when player opens first file.
+      context.read<FilesState>().onFirstFileOpened = () {
+        if (!mounted) return;
+        context.read<MessagesState>().deliverNpcMessage(
+          'nieznany',
+          'Widzisz te faktury? 14 tysięcy co miesiąc. "Konsulting". '
+              'Teraz rozumiesz dlaczego policja nie szuka N.',
+          delay: const Duration(seconds: 6),
+        );
+      };
+    });
+  }
+
+  /// Ghost notification — a brief flash of a banner that disappears
+  /// before the player can read it. Creates paranoia.
+  void _scheduleGhostNotification() {
+    Future.delayed(const Duration(minutes: 2), () {
+      if (!mounted) return;
+      // Don't fire if game was reset (phone locked again).
+      if (!context.read<PhoneState>().isUnlocked) return;
+      final n = context.read<NotificationsState>();
+      n.push(AppNotification(
+        id: 'ghost_${DateTime.now().microsecondsSinceEpoch}',
+        appName: 'System',
+        title: 'Lokalizacja',
+        body: 'Ktoś sprawdził Twoją lokalizację',
+        icon: Icons.location_on,
+        iconBg: const Color(0xFFFF453A),
+      ));
+      // Dismiss after just 1.5s — too fast to fully read.
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (!mounted) return;
+        n.dismiss();
+      });
+    });
+  }
+
+  /// Low battery warning after 3 minutes of gameplay.
+  void _scheduleLowBatteryAlert() {
+    Future.delayed(const Duration(minutes: 3), () {
+      if (!mounted) return;
+      if (!context.read<PhoneState>().isUnlocked) return;
+      final n = context.read<NotificationsState>();
+      n.push(AppNotification(
+        id: 'battery_low',
+        appName: 'System',
+        title: 'Bateria',
+        body: 'Pozostało 15% baterii. Włącz tryb oszczędzania energii.',
+        icon: Icons.battery_alert,
+        iconBg: const Color(0xFFFF9500),
+      ));
+    });
+  }
+
+  /// Wi-Fi auto-connect notification — explains how Sheriff can message
+  /// despite no cellular. Fires 10s after unlock.
+  void _scheduleWifiConnect() {
+    Future.delayed(const Duration(seconds: 10), () {
+      if (!mounted) return;
+      if (!context.read<PhoneState>().isUnlocked) return;
+      final n = context.read<NotificationsState>();
+      n.push(AppNotification(
+        id: 'wifi_connect',
+        appName: 'Wi-Fi',
+        title: 'Połączono z siecią',
+        body: 'HB_Guest_5G — połączenie nieszyfrowane',
+        icon: Icons.wifi,
+        iconBg: const Color(0xFF0A84FF),
+      ));
     });
   }
 
@@ -313,6 +411,10 @@ class _PhoneShellState extends State<_PhoneShell> {
     if (unlocked && !_wasUnlocked) {
       _wasUnlocked = true;
       AudioService.instance.startAmbient();
+      // Start immersive timers only after first unlock.
+      _scheduleWifiConnect();
+      _scheduleGhostNotification();
+      _scheduleLowBatteryAlert();
     }
 
     // Audio: tension track when Sheriff is active.
@@ -334,6 +436,7 @@ class _PhoneShellState extends State<_PhoneShell> {
     // Audio: stop everything on ending.
     if (hasEnding) {
       AudioService.instance.stopAmbient();
+      _updateRinger(false);
     }
 
     return Stack(

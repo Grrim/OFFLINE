@@ -53,29 +53,29 @@ class SettingsView extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  _SectionLabel(text: 'OGÓLNE'),
+                  const _SectionLabel(text: 'OGÓLNE'),
                   _SettingsGroup(rows: [
-                    _SettingsRow(
+                    const _SettingsRow(
                       icon: Icons.airplanemode_active,
-                      iconBg: const Color(0xFFFF9500),
+                      iconBg: Color(0xFFFF9500),
                       label: 'Tryb samolotowy',
-                      trailing: const _Toggle(value: false),
+                      trailing: _Toggle(value: false),
                     ),
-                    _SettingsRow(
+                    const _SettingsRow(
                       icon: Icons.wifi,
-                      iconBg: const Color(0xFF0A84FF),
+                      iconBg: Color(0xFF0A84FF),
                       label: 'Wi-Fi',
                       value: 'Niepołączono',
                     ),
-                    _SettingsRow(
+                    const _SettingsRow(
                       icon: Icons.bluetooth,
-                      iconBg: const Color(0xFF0A84FF),
+                      iconBg: Color(0xFF0A84FF),
                       label: 'Bluetooth',
                       value: 'Wyłączony',
                     ),
-                    _SettingsRow(
+                    const _SettingsRow(
                       icon: Icons.signal_cellular_alt,
-                      iconBg: const Color(0xFF34C759),
+                      iconBg: Color(0xFF34C759),
                       label: 'Komórkowe',
                     ),
                     _SettingsRow(
@@ -86,8 +86,8 @@ class SettingsView extends StatelessWidget {
                     ),
                   ]),
                   const SizedBox(height: 24),
-                  _SectionLabel(text: 'INFORMACJE'),
-                  _SettingsGroup(rows: const [
+                  const _SectionLabel(text: 'INFORMACJE'),
+                  const _SettingsGroup(rows: [
                     _SettingsRow(
                       icon: Icons.info_outline,
                       iconBg: Color(0xFF8E8E93),
@@ -102,7 +102,7 @@ class SettingsView extends StatelessWidget {
                     ),
                   ]),
                   const SizedBox(height: 24),
-                  _SectionLabel(text: 'DEWELOPER'),
+                  const _SectionLabel(text: 'DEWELOPER'),
                   _SettingsGroup(rows: [
                     _SettingsRow(
                       icon: Icons.refresh,

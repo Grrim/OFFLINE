@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/persistence_service.dart';
@@ -83,8 +82,13 @@ class PhotosState extends ChangeNotifier {
     if (_inspectedClueIds.add(p.id)) {
       _saveInspected();
       notifyListeners();
+      onClueInspected?.call(p.id);
     }
   }
+
+  /// Wired from main.dart. Called when a clue photo is inspected for
+  /// the first time. Used to trigger reactive NPC messages.
+  void Function(String photoId)? onClueInspected;
 
   void _load() {
     final p = _persistence;
@@ -110,7 +114,7 @@ class PhotosState extends ChangeNotifier {
       const PhotoItem(
         id: 'forest_night',
         assetPath: 'assets/images/photos/forest_night.jpg',
-        dateString: 'Wczoraj, 23:45',
+        dateString: '17 maja 2026, 23:45',
         location: 'Las Kabacki, Warszawa',
         camera: 'iPhone - Tylny aparat 26 mm f/1.8',
         placeholderIcon: Icons.dark_mode,
@@ -148,7 +152,7 @@ class PhotosState extends ChangeNotifier {
       const PhotoItem(
         id: 'dawn',
         assetPath: 'assets/images/photos/dawn.jpg',
-        dateString: 'Dzisiaj, 05:48',
+        dateString: '17 maja 2026, 05:48',
         location: 'Most Łazienkowski, Warszawa',
         camera: 'iPhone - Tylny aparat 26 mm f/1.8',
         placeholderIcon: Icons.wb_twilight,

@@ -108,11 +108,11 @@ class BrowserState extends ChangeNotifier {
       BrowserEntry(
         id: 'ekolog',
         title: 'Stowarzyszenie Strażnicy Lasu - dokumenty',
-        url: 'straznicylasu.org/raporty/2025',
+        url: 'straznicylasu.org/raporty/2026',
         timestamp: 'Wczoraj, 22:33',
         preview:
-            'RAPORT 2025/Q3 - REZERWAT LAS KABACKI\n\n'
-            'W trzecim kwartale 2025 odnotowaliśmy wycinkę co najmniej '
+            'RAPORT 2026/Q1 - REZERWAT LAS KABACKI\n\n'
+            'W pierwszym kwartale 2026 odnotowaliśmy wycinkę co najmniej '
             '1.1 ha drzewostanu w sektorach uznawanych za rezerwat ścisły. '
             'Wszystkie zgłoszenia do organów ścigania pozostały bez '
             'reakcji. Otrzymujemy informacje o zorganizowanym charakterze '

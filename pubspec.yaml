@@ -1,5 +1,5 @@
 name: zaginiona
-description: "Zaginiona - a found phone text-based puzzle/horror game."
+description: "OFFLINE - a found phone text-based puzzle/horror game."
 publish_to: "none"
 version: 0.1.0+1
 
@@ -17,6 +17,8 @@ dependencies:
   audioplayers: ^6.1.0
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^4.0.0
 
 flutter:

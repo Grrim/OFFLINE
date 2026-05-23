@@ -78,7 +78,7 @@ class _StatusBarState extends State<StatusBar> {
           children: [
             Text(_formatTime(_now)),
             Text(
-              'Brak sieci',
+              'HB_Guest',
               style: TextStyle(
                 color: fg.withValues(alpha: 0.5),
                 fontSize: 12,
@@ -89,7 +89,7 @@ class _StatusBarState extends State<StatusBar> {
               children: [
                 Icon(Icons.signal_cellular_off, size: 16, color: fg.withValues(alpha: 0.5)),
                 const SizedBox(width: 6),
-                Icon(Icons.wifi_off, size: 16, color: fg.withValues(alpha: 0.5)),
+                Icon(Icons.wifi, size: 16, color: fg),
                 const SizedBox(width: 6),
                 Icon(batIcon, size: 18, color: batColor),
                 const SizedBox(width: 2),

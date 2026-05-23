@@ -82,7 +82,7 @@ class _BootScreenState extends State<BootScreen>
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'ZAGINIONA',
+                    'OFFLINE',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 12,

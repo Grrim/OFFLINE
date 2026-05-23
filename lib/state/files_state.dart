@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/persistence_service.dart';
@@ -58,14 +57,27 @@ class FilesState extends ChangeNotifier {
   /// chapter-2 threshold (≥4 files opened).
   void Function()? onChapter2Threshold;
 
+  /// Wired from main.dart. Called when the player opens their first file.
+  void Function()? onFirstFileOpened;
+
   static const int chapter2OpenThreshold = 4;
   bool _thresholdFired = false;
+  bool _firstFileFired = false;
 
   void markOpened(String id) {
     if (_openedIds.add(id)) {
       _persistOpened();
       notifyListeners();
+      _maybeFireFirstFile();
       _maybeFireThreshold();
+    }
+  }
+
+  void _maybeFireFirstFile() {
+    if (_firstFileFired) return;
+    if (_openedIds.length == 1) {
+      _firstFileFired = true;
+      onFirstFileOpened?.call();
     }
   }
 
@@ -97,6 +109,7 @@ class FilesState extends ChangeNotifier {
   void reset() {
     _openedIds.clear();
     _thresholdFired = false;
+    _firstFileFired = false;
     notifyListeners();
   }
 
@@ -105,10 +118,10 @@ class FilesState extends ChangeNotifier {
   void _seed() {
     _files.addAll(const [
       GameFile(
-        id: 'faktura_2025_11',
-        title: 'Faktura HB-2025-1143.pdf',
+        id: 'faktura_2026_05',
+        title: 'Faktura HB-2026-0517.pdf',
         subtitle: 'Helion-Bud Sp. z o.o.',
-        dateString: '14 listopada 2025',
+        dateString: '2 maja 2026',
         icon: Icons.description,
         iconColor: Color(0xFFFF453A),
         isMonospace: true,
@@ -119,9 +132,9 @@ class FilesState extends ChangeNotifier {
    NIP: 524-29-87-122
 ================================================
 
-FAKTURA VAT  Nr  HB-2025-1143
-Data wystawienia:  14.11.2025
-Termin platnosci:  do 28.11.2025
+FAKTURA VAT  Nr  HB-2026-0517
+Data wystawienia:  02.05.2026
+Termin platnosci:  do 16.05.2026
 
 Nabywca:
   KOMENDA POWIATOWA POLICJI
@@ -131,7 +144,7 @@ Pozycja                              Netto      VAT      Brutto
 ------------------------------------------------------------------
 Uslugi konsultingowe w zakresie
 ochrony perimetru obiektu w
-Lesie Kabackim, listopad 2025      12.000,00   2.760,00  14.760,00
+Lesie Kabackim, maj 2026           12.000,00   2.760,00  14.760,00
 ------------------------------------------------------------------
 RAZEM                              12.000,00   2.760,00  14.760,00
 
@@ -143,10 +156,10 @@ Numer rachunku odbiorcy:
 ''',
       ),
       GameFile(
-        id: 'faktura_2025_10',
-        title: 'Faktura HB-2025-1042.pdf',
+        id: 'faktura_2026_04',
+        title: 'Faktura HB-2026-0416.pdf',
         subtitle: 'Helion-Bud Sp. z o.o.',
-        dateString: '15 października 2025',
+        dateString: '1 kwietnia 2026',
         icon: Icons.description,
         iconColor: Color(0xFFFF453A),
         isMonospace: true,
@@ -155,36 +168,36 @@ Numer rachunku odbiorcy:
    HELION-BUD Sp. z o.o.
 ================================================
 
-FAKTURA VAT  Nr  HB-2025-1042
-Data wystawienia:  15.10.2025
-Termin platnosci:  do 29.10.2025
+FAKTURA VAT  Nr  HB-2026-0416
+Data wystawienia:  01.04.2026
+Termin platnosci:  do 15.04.2026
 
 Pozycja                              Netto      VAT      Brutto
 ------------------------------------------------------------------
 Uslugi konsultingowe w zakresie
 ochrony perimetru obiektu w
-Lesie Kabackim, pazdziernik 2025   12.000,00   2.760,00  14.760,00
+Lesie Kabackim, kwiecien 2026      12.000,00   2.760,00  14.760,00
 ------------------------------------------------------------------
 RAZEM                              12.000,00   2.760,00  14.760,00
 
 [ N.: trzecia z rzedu na te sama kwote, do tego samego konta.
   Sprawdzilam KRS - "konsulting" to ich jedyna pozaglowna PKD,
-  dopisana 4 miesiace temu. ]
+  dopisana 3 miesiace temu. ]
 ''',
       ),
       GameFile(
         id: 'transkrypcja',
-        title: 'Transkrypcja_06.11.2025.txt',
+        title: 'Transkrypcja_10.05.2026.txt',
         subtitle: 'Nagranie audio · 14:23',
-        dateString: '6 listopada 2025',
+        dateString: '10 maja 2026',
         icon: Icons.text_snippet,
         iconColor: Color(0xFF0A84FF),
         isMonospace: true,
         body: '''
-TRANSKRYPCJA NAGRANIA - 06.11.2025
+TRANSKRYPCJA NAGRANIA - 10.05.2026
 Lokalizacja: parking za hipermarketem, Mokotow
 Czas: 22:14 - 22:21
-Uczestnicy: GLOS A (komendant K.), GLOS B (przedstawiciel HB)
+Uczestnicy: GLOS A (komendant K. - "Szeryf"), GLOS B (przedstawiciel HB)
 
 [22:14:08]
 GLOS B: ...przyniosles to o czym mowilismy?
@@ -220,9 +233,9 @@ GLOS B: Do widzenia, panie komendancie.
 
 [ N.: nagranie z dyktafonu w torbie - puste opakowanie po
   papierosach. Drugi raz zlapalam ich na tym. Pierwszy raz
-  bylo we wrzesniu. Anita ma kopię. ]
+  bylo w marcu. Anita ma kopię. ]
 
-[ N.: pierwsze nagranie zrobilam dokladnie 14:22 dnia 12.09.
+[ N.: pierwsze nagranie zrobilam dokladnie 14:22 dnia 28.03.
   Zawsze pamietam te godzine - to byla moja ostatnia spokojna
   niedziela. Jak bedziesz potrzebowala kodu - on jest w tej
   godzinie. ]
@@ -232,7 +245,7 @@ GLOS B: Do widzenia, panie komendancie.
         id: 'koperty',
         title: 'lista_kopert.numbers',
         subtitle: 'Arkusz · 18 wpisów',
-        dateString: '12 listopada 2025',
+        dateString: '8 maja 2026',
         icon: Icons.table_chart,
         iconColor: Color(0xFF34C759),
         isMonospace: true,
@@ -242,12 +255,12 @@ LISTA KOPERTY - HELION-BUD -> KOMENDA
 
 DATA          KWOTA       MIEJSCE PRZEKAZANIA      SWIADEK
 -------------------------------------------------------------------
-2024-06-15    10.000      Stacja Orlen, Mokotow    -
-2024-07-19    10.000      Parking Galeria Pn       J.M. (kelner)
-2024-08-22    12.000      Las Kabacki, sciezka     -
-2024-09-17    12.000      Parking hipermarket      A. (foto)
-2024-10-15    12.000      Parking hipermarket      A. (audio)
-2024-11-06    14.000      Parking hipermarket      A. (audio)
+2026-02-15    10.000      Stacja Orlen, Mokotow    -
+2026-03-12    10.000      Parking Galeria Pn       J.M. (kelner)
+2026-03-28    12.000      Las Kabacki, sciezka     -
+2026-04-10    12.000      Parking hipermarket      A. (foto)
+2026-04-25    12.000      Parking hipermarket      A. (audio)
+2026-05-10    14.000      Parking hipermarket      A. (audio)
                                                    <- ostatnie!
 -------------------------------------------------------------------
 RAZEM:        70.000
@@ -255,7 +268,7 @@ RAZEM:        70.000
 UWAGI:
 - kazda koperta przelozona w gazete codzienna
 - HB zawsze w czarnym SUV-ie BMW (rej. WI 38274)
-- K. zawsze sam, bez kierowcy
+- K. (Szeryf) zawsze sam, bez kierowcy
 - po przekazaniu HB znika w 30s, K. zostaje 5-10min
 
 [ N.: jak juz wszystko wyjdzie, to powinno wystarczyc na
@@ -265,31 +278,31 @@ UWAGI:
       ),
       GameFile(
         id: 'mapa_wycinek',
-        title: 'mapa_wycinek_2025.txt',
+        title: 'mapa_wycinek_2026.txt',
         subtitle: 'Notatka geograficzna',
-        dateString: '20 października 2025',
+        dateString: '5 maja 2026',
         icon: Icons.map,
         iconColor: Color(0xFFFF9F0A),
         isMonospace: true,
         body: '''
-LAS KABACKI - SEKTORY NIELEGALNYCH WYCINEK 2025
+LAS KABACKI - SEKTORY NIELEGALNYCH WYCINEK 2026
 ================================================
 
 Sektor A-1 (przy ul. Wandy Rutkiewicz)
-  - kwiecien 2025: ~0.4 ha, 80 drzew (sosna, dab)
+  - luty 2026: ~0.4 ha, 80 drzew (sosna, dab)
   - oficjalnie: "wycinka pielegnacyjna"
   - rzeczywiscie: pod plac budowy magazynu HB
 
 Sektor B-3 (na poludnie od stawu Wilanowskiego)
-  - lipiec 2025: ~0.7 ha, 120 drzew
+  - marzec 2026: ~0.7 ha, 120 drzew
   - oficjalnie: "stan zagrozenia bezpieczenstwa"
   - rzeczywiscie: przygotowanie pod parking dla TIR-ow
 
 Sektor C-2 (zachodni skraj rezerwatu)
-  - listopad 2025: WYCINKA W TOKU
+  - maj 2026: WYCINKA W TOKU
   - rozmiar: ~1.2 ha (najwiekszy do tej pory)
   - patrole policji: omijaja teren w godzinach 22:00-06:00
-  - tu byla anonimowa skarga z 03.11. - oficjalnie "zbadana,
+  - tu byla anonimowa skarga z 03.05. - oficjalnie "zbadana,
     nie potwierdzono nieprawidlowosci"
 
 [ N.: bylam tam wczoraj w nocy. C-2. Maja juz przygotowane

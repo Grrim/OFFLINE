@@ -66,7 +66,8 @@ class NotesState extends ChangeNotifier {
     _persistUnlocked(noteId);
     notifyListeners();
 
-    if (!_hasFiredUnlockHook) {
+    // Fire the Sheriff hook specifically when the 'secret' note is unlocked.
+    if (noteId == 'secret' && !_hasFiredUnlockHook) {
       _hasFiredUnlockHook = true;
       _persistence?.setBool(_kHookFired, true);
       onLockedNoteUnlocked?.call(noteId, fromColdLoad: false);
@@ -150,7 +151,7 @@ class NotesState extends ChangeNotifier {
         title: 'Hasła Wi-Fi',
         body:
             'Dom: kotmruczek2019\n'
-            'Praca: nie pamiętam, zapytać Anki\n'
+            'Praca: nie pamiętam, zapytać Kasi z IT\n'
             'Cafe Relaks: gosc.relaks',
         dateString: '2 maja 2026',
       ),
@@ -166,7 +167,7 @@ class NotesState extends ChangeNotifier {
             '- jej numer: zachowany w kontaktach jako "Anita Z. (Gazeta)"\n\n'
             'Czuję, że ktoś nas obserwował. Kelner za długo stał przy '
             'naszym stoliku. Może paranoja. Może nie.',
-        dateString: '11 maja 2026',
+        dateString: '10 maja 2026',
       ),
     ]);
   }
@@ -186,7 +187,7 @@ Jeżeli coś mi się stanie - to nie był wypadek. Wszystkie dowody są w skrytc
 
 Jeśli ktokolwiek to czyta i wie co robi: napisz do Anity Z. z Gazety. Ona ma już połowę materiału, brakuje jej tylko mojego potwierdzenia. Powiedz jej "fikus 14B" - zrozumie.
 
-I jeszcze jedno: NIE UFAJ NIKOMU Z MUNDURU. Szczególnie szeryfowi. To on odbiera koperty.
+I jeszcze jedno: NIE UFAJ NIKOMU Z MUNDURU. Szczególnie szeryfowi — tak go wszyscy nazywają, bo rządzi tu jak w westernach. Naprawdę to komendant K. z powiatowej. To on odbiera koperty.
 
 - N.
 ''';

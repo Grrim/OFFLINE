@@ -163,6 +163,17 @@ class MessagesState extends ChangeNotifier {
   int get totalUnread =>
       _threads.values.fold(0, (acc, t) => acc + t.unreadCount);
 
+  /// True once the player has completed the "Nieznany" intro dialogue
+  /// (reached the hint_files node). Used for soft-gating other apps.
+  bool get hasCompletedIntro {
+    final t = _threads['nieznany'];
+    if (t == null) return false;
+    // hint_files is the terminal node — if we're there or past it,
+    // the intro is done. Also check convergence for cold-load edge case.
+    final nodeId = t.currentNodeId;
+    return nodeId == 'hint_files' || nodeId == 'convergence' || nodeId == null;
+  }
+
   void openThread(String id) {
     _activeThreadId = id;
     final t = _threads[id];
@@ -626,8 +637,8 @@ class MessagesState extends ChangeNotifier {
         ),
         ChatMessage(
           sender: MessageSender.npc,
-          text: 'Słyszałaś, że Helion-Bud znowu wycina drzewa w Kabackim? '
-              'Babcia mówi, że to skandal.',
+          text: 'Słyszałaś, że znowu coś robią w tym lesie za miastem? '
+              'Babcia mówi, że hałasy w nocy. Ciężkie maszyny.',
           timestamp: now.subtract(const Duration(days: 1, hours: 20)),
         ),
         ChatMessage(
@@ -694,6 +705,17 @@ class MessagesState extends ChangeNotifier {
           'Musisz mi zaufać. Wejdź w Galerię zdjęć. Znajdź fotografię zrobioną '
               'zeszłej nocy. Musisz odszyfrować ukrytą na niej wiadomość, zanim '
               'oni wyłączą ten telefon. Pospiesz się.',
+        ],
+        autoNextNodeId: 'hint_files',
+      ),
+      'hint_files': const DialogueNode(
+        id: 'hint_files',
+        npcMessages: [
+          'Jeszcze jedno — w Plikach są dokumenty, które zebrała. Faktury, '
+              'nagrania, lista koperty. Przeczytaj je. Zrozumiesz, z kim masz '
+              'do czynienia.',
+          'I nie próbuj dzwonić na policję z tego telefonu. Nie masz zasięgu. '
+              'Zresztą... policja to część problemu.',
         ],
       ),
     };

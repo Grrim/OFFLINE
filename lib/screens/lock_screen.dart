@@ -73,17 +73,16 @@ class _LockScreenState extends State<LockScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ---- Wallpaper ----
-          // Place your wallpaper at: assets/images/lockscreen_wallpaper.jpg
+          // Same wallpaper as home screen — like a real phone.
           Image.asset(
-            'assets/images/lockscreen_wallpaper.jpg',
+            'assets/images/home_wallpaper.jog',
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF101015), Color(0xFF000000)],
+                  colors: [Color(0xFF0A0A12), Color(0xFF000000)],
                 ),
               ),
             ),
@@ -103,7 +102,7 @@ class _LockScreenState extends State<LockScreen>
                 // Scale keypad to fit — on small screens reduce key size.
                 final availableHeight = constraints.maxHeight;
                 // Reserve space for status bar + clock + date.
-                final headerHeight = 120.0;
+                const headerHeight = 120.0;
                 final keypadMaxHeight = availableHeight - headerHeight;
                 // Standard keypad needs ~420px. Scale down if needed.
                 final scale = (keypadMaxHeight / 420).clamp(0.65, 1.0);
@@ -139,7 +138,19 @@ class _LockScreenState extends State<LockScreen>
                         },
                       ),
                     ),
-                    SizedBox(height: 12 * scale),
+                    SizedBox(height: 6 * scale),
+                    // Show hint only after 3 failed attempts.
+                    if (context.select<PhoneState, int>(
+                            (s) => s.failedAttempts) >=
+                        3)
+                      Text(
+                        'Podpowiedź: Orwell',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          fontSize: 11 * scale,
+                        ),
+                      ),
+                    SizedBox(height: 8 * scale),
                   ],
                 );
               },

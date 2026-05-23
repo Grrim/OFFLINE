@@ -29,9 +29,9 @@ class AudioService extends ChangeNotifier {
   bool _muted = false;
   bool get isMuted => _muted;
 
-  double _ambientVolume = 0.3;
+  final double _ambientVolume = 0.3;
   double _tensionVolume = 0.0;
-  double _sfxVolume = 0.7;
+  final double _sfxVolume = 0.7;
 
   // ─── Ambient ───────────────────────────────────────────────
 

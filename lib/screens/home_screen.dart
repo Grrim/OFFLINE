@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../state/browser_state.dart';
 import '../state/files_state.dart';
 import '../state/messages_state.dart';
 import '../state/notes_state.dart';
@@ -9,9 +8,11 @@ import '../state/phone_state.dart';
 import '../state/photos_state.dart';
 import '../widgets/status_bar.dart';
 import 'browser/browser_view.dart';
+import 'calendar/calendar_view.dart';
 import 'files/files_view.dart';
 import 'messages/messages_list_view.dart';
 import 'notes/notes_view.dart';
+import 'phone/phone_view.dart';
 import 'photos/photos_grid_view.dart';
 import 'settings/settings_view.dart';
 
@@ -25,9 +26,14 @@ class HomeScreen extends StatelessWidget {
     final messagesUnread =
         context.select<MessagesState, int>((s) => s.totalUnread);
 
-    // Phase 4 soft-gate signals for the Notatki tile.
+    // Soft-gate: Pliki unlock after talking to Nieznany.
+    final hasCompletedIntro =
+        context.select<MessagesState, bool>((s) => s.hasCompletedIntro);
+
+    // Soft-gate: Safari unlocks after inspecting the clue photo.
     final cluePhotoSeen = context
         .select<PhotosState, bool>((s) => s.hasInspected('forest_night'));
+
     final hasLockedNote = context
         .select<NotesState, bool>((s) => s.notes.any((n) => n.isLocked));
     // Show a "1" badge once the player has the clue but hasn't unlocked it yet.
@@ -37,6 +43,14 @@ class HomeScreen extends StatelessWidget {
         context.select<FilesState, int>((s) => s.unreadCount);
 
     final apps = <_AppEntry>[
+      _AppEntry(
+        label: 'Telefon',
+        icon: Icons.phone,
+        color: const Color(0xFF34C759),
+        onOpen: (ctx) => Navigator.of(ctx).push(
+          MaterialPageRoute(builder: (_) => const PhoneView()),
+        ),
+      ),
       _AppEntry(
         label: 'Wiadomości',
         icon: Icons.chat_bubble,
@@ -67,18 +81,34 @@ class HomeScreen extends StatelessWidget {
       _AppEntry(
         label: 'Pliki',
         icon: Icons.folder,
-        color: const Color(0xFF0A84FF),
-        badge: filesUnread,
-        onOpen: (ctx) => Navigator.of(ctx).push(
-          MaterialPageRoute(builder: (_) => const FilesView()),
-        ),
+        color: hasCompletedIntro
+            ? const Color(0xFF0A84FF)
+            : const Color(0xFF3A3A3C),
+        badge: hasCompletedIntro ? filesUnread : 0,
+        onOpen: hasCompletedIntro
+            ? (ctx) => Navigator.of(ctx).push(
+                  MaterialPageRoute(builder: (_) => const FilesView()),
+                )
+            : (ctx) => _showLocked(ctx, 'Pliki', 'Najpierw sprawdź Wiadomości'),
       ),
       _AppEntry(
         label: 'Safari',
         icon: Icons.public,
-        color: const Color(0xFF1E90FF),
+        color: cluePhotoSeen
+            ? const Color(0xFF1E90FF)
+            : const Color(0xFF3A3A3C),
+        onOpen: cluePhotoSeen
+            ? (ctx) => Navigator.of(ctx).push(
+                  MaterialPageRoute(builder: (_) => const BrowserView()),
+                )
+            : (ctx) => _showLocked(ctx, 'Safari', 'Brak połączenia z siecią'),
+      ),
+      _AppEntry(
+        label: 'Kalendarz',
+        icon: Icons.calendar_month,
+        color: const Color(0xFFFF453A),
         onOpen: (ctx) => Navigator.of(ctx).push(
-          MaterialPageRoute(builder: (_) => const BrowserView()),
+          MaterialPageRoute(builder: (_) => const CalendarView()),
         ),
       ),
       _AppEntry(
@@ -98,7 +128,7 @@ class HomeScreen extends StatelessWidget {
           // ---- Wallpaper ----
           // Place your home wallpaper at: assets/images/home_wallpaper.jpg
           Image.asset(
-            'assets/images/home_wallpaper.jpg',
+            'assets/images/home_wallpaper.jog',
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(
               decoration: const BoxDecoration(
@@ -134,10 +164,10 @@ class HomeScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: GridView.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 22,
-                      crossAxisSpacing: 22,
-                      childAspectRatio: 0.9,
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 20,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 0.75,
                       children: [
                         for (final app in apps)
                           _AppIcon(
@@ -183,6 +213,25 @@ class HomeScreen extends StatelessWidget {
         ),
       );
   }
+
+  void _showLocked(BuildContext context, String label, String reason) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.lock_outline, color: Colors.white70, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text(reason)),
+            ],
+          ),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF2C2C2E),
+        ),
+      );
+  }
 }
 
 class _AppEntry {
@@ -221,40 +270,40 @@ class _AppIcon extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 70,
-                height: 70,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
                   color: entry.color,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(15),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
-                child: Icon(entry.icon, color: entry.iconColor, size: 36),
+                child: Icon(entry.icon, color: entry.iconColor, size: 30),
               ),
               if (entry.badge > 0)
                 Positioned(
-                  top: -4,
-                  right: -4,
+                  top: -3,
+                  right: -3,
                   child: Container(
                     constraints:
-                        const BoxConstraints(minWidth: 22, minHeight: 22),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                        const BoxConstraints(minWidth: 20, minHeight: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF3B30),
-                      borderRadius: BorderRadius.circular(11),
-                      border: Border.all(color: Colors.white, width: 1.4),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 1.2),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       '${entry.badge}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -262,12 +311,15 @@ class _AppIcon extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             entry.label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 13,
+              fontSize: 11,
               shadows: [
                 Shadow(blurRadius: 4, color: Colors.black54),
               ],
