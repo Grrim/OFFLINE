@@ -27,9 +27,9 @@ class PhoneState extends ChangeNotifier {
   String? get lastError => _lastError;
 
   void _load() {
-    final p = _persistence;
-    if (p == null) return;
-    _isUnlocked = p.getBool(_kIsUnlocked, defaultValue: false);
+    // Intentionally NOT loading isUnlocked from persistence.
+    // Every app launch starts locked — like a real phone waking up.
+    // Only the PIN progress (failed attempts) resets on reboot.
   }
 
   bool tryUnlock(String pin) {
