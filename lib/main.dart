@@ -396,10 +396,13 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
       };
 
       // Scheduled message from N. — arrives 3.5 min after unlock.
-      // Simulates a "delayed send" that N. set up before disappearing.
+      // Only if not already delivered in a previous session.
       Future.delayed(const Duration(minutes: 3, seconds: 30), () {
         if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-        context.read<MessagesState>().deliverNpcMessage(
+        final msgs = context.read<MessagesState>();
+        // Don't re-deliver if thread already has messages (cold-load).
+        if (msgs.threadById('n_scheduled') != null) return;
+        msgs.deliverNpcMessage(
           'n_scheduled',
           'Jeśli to czytasz, to znaczy że nie wróciłam. '
               'Przepraszam. Nie chciałam żeby ktokolwiek w to wchodził. '
@@ -411,8 +414,13 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
       });
 
       // Stalker "nice photo" — 3 min after unlock, pretends to use camera.
+      // Only on first playthrough (stalker thread doesn't exist yet).
       Future.delayed(const Duration(minutes: 3), () {
         if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+        final msgs = context.read<MessagesState>();
+        // Skip if stalker already has messages (cold-load / replay).
+        final stalkerThread = msgs.threadById('stalker');
+        if (stalkerThread != null && stalkerThread.messages.isNotEmpty) return;
         context.read<NotificationsState>().push(AppNotification(
           id: 'creepy_photo',
           appName: 'Aparat',
@@ -424,7 +432,7 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
         // 5s later stalker comments on it.
         Future.delayed(const Duration(seconds: 5), () {
           if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-          context.read<MessagesState>().deliverNpcMessage(
+          msgs.deliverNpcMessage(
             'stalker',
             'Ładne zdjęcie.',
             delay: const Duration(seconds: 1),
@@ -731,6 +739,7 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
                 )
               : const LockScreen(key: ValueKey('lock')),
         ),
+        // Notification banner.
         if (unlocked && !hasEnding)
           const Positioned(
             top: 0,
@@ -740,6 +749,7 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
           ),
         if (unlocked && !hasEnding)
           Positioned.fill(child: GlitchOverlay(active: glitchActive)),
+        // Scare overlay on top — blackout covers everything.
         if (unlocked && !hasEnding)
           Positioned.fill(
             child: ScareOverlay(active: unlocked && !hasEnding),

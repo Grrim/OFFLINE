@@ -54,8 +54,10 @@ class _ScareOverlayState extends State<ScareOverlay> {
 
   void _triggerScare() {
     if (!mounted || !widget.active) return;
+    // Don't scare during active chat — would be frustrating.
+    // The scare will just be skipped and next one scheduled.
+    _scheduleNext();
 
-    // Alternate between blackout and fake crash.
     final type = _rng.nextBool() ? _ScareType.blackout : _ScareType.fakeCrash;
     setState(() => _currentScare = type);
 
@@ -70,7 +72,6 @@ class _ScareOverlayState extends State<ScareOverlay> {
     Future.delayed(duration, () {
       if (!mounted) return;
       setState(() => _currentScare = null);
-      _scheduleNext();
     });
   }
 
@@ -78,6 +79,8 @@ class _ScareOverlayState extends State<ScareOverlay> {
   Widget build(BuildContext context) {
     if (_currentScare == null) return const SizedBox.shrink();
 
+    // Blackout blocks all input (phone is "dead").
+    // Fake crash allows tapping the dismiss button.
     return switch (_currentScare!) {
       _ScareType.blackout => const _BlackoutWidget(),
       _ScareType.fakeCrash => _FakeCrashWidget(
@@ -153,8 +156,9 @@ class _FakeCrashWidget extends StatelessWidget {
                   Expanded(
                     child: TextButton(
                       onPressed: () {
-                        // "Zamknij" also does nothing — creepy.
+                        // "Zamknij" dismisses the fake crash — relief.
                         HapticFeedback.heavyImpact();
+                        onDismiss();
                       },
                       child: const Text('Zamknij',
                           style: TextStyle(color: Color(0xFFFF453A))),
