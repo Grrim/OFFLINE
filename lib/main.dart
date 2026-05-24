@@ -30,8 +30,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await PersistenceService.init();
-  // Start location fetch early — non-blocking, silent fail.
-  LocationService.instance.tryGetLocation();
+  // Delay location fetch — don't interrupt boot with permission dialog.
+  Future.delayed(const Duration(seconds: 30), () {
+    LocationService.instance.tryGetLocation();
+  });
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   // Edge-to-edge mode — hides navigation bar but allows swipe gestures.
@@ -256,6 +258,7 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _ringerTimer?.cancel();
+    _sheriffCountdown?.cancel();
     super.dispose();
   }
 
@@ -590,6 +593,16 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
     final glitchActive = unlocked &&
         !hasEnding &&
         (sheriffUnread > 0 || isNpcTyping);
+
+    // Detect game reset — phone locked again after being unlocked.
+    if (!unlocked && _wasUnlocked) {
+      _wasUnlocked = false;
+      _tensionActive = false;
+      _ringerTimer?.cancel();
+      _ringerTimer = null;
+      _sheriffCountdown?.cancel();
+      _sheriffCountdown = null;
+    }
 
     // Audio: start ambient on first unlock.
     if (unlocked && !_wasUnlocked) {

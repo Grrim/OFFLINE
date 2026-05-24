@@ -173,9 +173,9 @@ class HomeScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: GridView.count(
                       crossAxisCount: 3,
-                      mainAxisSpacing: 20,
+                      mainAxisSpacing: 16,
                       crossAxisSpacing: 16,
-                      childAspectRatio: 0.75,
+                      childAspectRatio: 0.82,
                       children: [
                         for (final app in apps)
                           _AppIcon(

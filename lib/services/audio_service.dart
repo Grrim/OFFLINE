@@ -86,10 +86,12 @@ class AudioService extends ChangeNotifier {
   Future<void> playSfx(GameSfx sfx) async {
     if (_muted) return;
     try {
+      // Stop previous SFX to prevent overlap on rapid triggers.
+      await _sfxPlayer.stop();
       await _sfxPlayer.setVolume(_sfxVolume);
       await _sfxPlayer.play(AssetSource(sfx.path));
     } catch (_) {
-      // Asset missing — silent fail.
+      // Asset missing or format unsupported — silent fail.
     }
   }
 
