@@ -189,15 +189,15 @@ Future<void> _triggerSheriffHook(MessagesState messages,
     delay: const Duration(seconds: 20),
   );
 
-  // Start countdown — 5 minutes to respond or auto-CAUGHT ending.
-  _sheriffCountdown = Timer(const Duration(minutes: 5), () {
-    if (_sheriffCountdown == null) return; // Already responded.
+  // Start countdown — 8 minutes to respond or auto-CAUGHT ending.
+  _sheriffCountdown = Timer(const Duration(minutes: 8), () {
+    if (_sheriffCountdown == null) return;
     messages.onEndingTriggered?.call('caught');
   });
 
-  // Warning at 4 minutes (1 min before deadline).
-  Future.delayed(const Duration(minutes: 4), () {
-    if (_sheriffCountdown == null) return; // Already responded.
+  // Warning at 7 minutes (1 min before deadline).
+  Future.delayed(const Duration(minutes: 7), () {
+    if (_sheriffCountdown == null) return;
     messages.deliverNpcMessage(
       'szeryf',
       'Minuta. Albo odpowiadasz, albo jadę.',
@@ -220,18 +220,19 @@ Future<void> _triggerSheriffHook(MessagesState messages,
   // 3) Nieznany warns the player — don't rush the Sheriff response.
   await messages.deliverNpcMessage(
     'nieznany',
-    'Widzę, że Szeryf się odezwał. NIE odpowiadaj mu pochopnie. '
-        'Przeczytaj najpierw wszystko co masz — notatki, pliki, historię '
-        'przeglądarki. Każda odpowiedź ma konsekwencje.',
+    'Szeryf się odezwał. Masz kilka minut zanim przyjedzie. '
+        'NIE odpowiadaj mu od razu — najpierw przeczytaj Pliki i '
+        'Pocztę. Im więcej wiesz, tym lepszą odpowiedź wybierzesz.',
     delay: const Duration(seconds: 4),
   );
 
   // 4) Hint about the second locked note.
   await messages.deliverNpcMessage(
     'nieznany',
-    'Jeszcze jedno — N. zostawiła drugą zamkniętą notatkę. "Plan B". '
-        'Kod do niej jest ukryty w jednym z plików. Szukaj godziny.',
-    delay: const Duration(seconds: 8),
+    'Jeszcze jedno — jest druga zamknięta notatka, "Plan B". '
+        'Kod do niej znajdziesz w transkrypcji nagrania w Plikach. '
+        'Szukaj godziny. To ważne.',
+    delay: const Duration(seconds: 6),
   );
 }
 
@@ -320,6 +321,16 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
         _sheriffCountdown?.cancel();
         _sheriffCountdown = null;
         context.read<MessagesState>().triggerJournalistDialog();
+        // Nieznany confirms the player made the right choice.
+        Future.delayed(const Duration(seconds: 5), () {
+          if (!mounted) return;
+          context.read<MessagesState>().deliverNpcMessage(
+            'nieznany',
+            'Dobry wybór. Anita się odezwie — odpowiedz jej. '
+                'Wyślij wszystko co masz. To jedyna szansa.',
+            delay: const Duration(seconds: 2),
+          );
+        });
       };
 
       // Cold-load: if the secret note was already unlocked in a previous
@@ -341,16 +352,16 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
         if (photoId == 'forest_night') {
           context.read<MessagesState>().deliverNpcMessage(
             'nieznany',
-            'Widzę, że znalazłeś to zdjęcie. Kod jest w komentarzu EXIF. '
-                'Użyj go w Notatkach — jest tam coś, co N. zostawiła na '
-                'wypadek gdyby zniknęła.',
-            delay: const Duration(seconds: 5),
+            'Dobra robota. Widzisz ten kod w komentarzu? 7309. '
+                'Wejdź w Notatki — jest tam zablokowana notatka. '
+                'Wpisz ten kod. Przeczytaj co N. zostawiła.',
+            delay: const Duration(seconds: 3),
           );
         }
       };
 
-      // Reminder: if player hasn't opened photos after 90s, nudge them.
-      Future.delayed(const Duration(seconds: 90), () {
+      // Reminder: if player hasn't opened photos after 60s, nudge them.
+      Future.delayed(const Duration(seconds: 60), () {
         if (!mounted) return;
         if (!context.read<PhoneState>().isUnlocked) return;
         final photos = context.read<PhotosState>();
@@ -359,7 +370,8 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
           if (msgs.hasCompletedIntro) {
             msgs.deliverNpcMessage(
               'nieznany',
-              'Pospiesz się. Wejdź w Zdjęcia. Szukaj tego z zeszłej nocy.',
+              'Pospiesz się. Wejdź w Zdjęcia — szukaj ciemnego zdjęcia '
+                  'z lasu. Kliknij na nie, potem przycisk Info (ⓘ) na dole.',
               delay: const Duration(seconds: 2),
             );
           }

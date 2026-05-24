@@ -314,12 +314,11 @@ class MessagesState extends ChangeNotifier {
 
     if (fromColdLoad) return;
 
-    // Deliver an opener from Anita as a notification to draw the
-    // player into her chat.
+    // Deliver an opener from Anita — fast, urgent.
     await deliverNpcMessage(
       'dziennikarka',
-      'Boże, kto to jest? Gdzie jest N.? Odpowiedz mi natychmiast.',
-      delay: const Duration(seconds: 2),
+      'Kto to?! Gdzie jest N.?! Masz jej telefon — powiedz mi co się stało!',
+      delay: const Duration(seconds: 3),
     );
   }
 
@@ -436,8 +435,9 @@ class MessagesState extends ChangeNotifier {
     await deliverNpcMessage(
       'tomasz',
       'Wiem że masz jej telefon. Widziałem światło w jej oknie wczoraj '
-          'wieczorem - ktoś tam był. To nie była ona. Odezwij się.',
-      delay: const Duration(seconds: 4),
+          'wieczorem — ktoś tam był. To nie była ona. '
+          'Jeśli znasz hasło, napisz. Jeśli nie — schowaj telefon i uciekaj.',
+      delay: const Duration(seconds: 3),
     );
   }
 
@@ -796,6 +796,9 @@ class MessagesState extends ChangeNotifier {
               'do czynienia.',
           'I nie próbuj dzwonić na policję z tego telefonu. Nie masz zasięgu. '
               'Zresztą... policja to część problemu.',
+          'Teraz idź do Zdjęć. Znajdź to ciemne zdjęcie z lasu — zrobione '
+              'wczoraj w nocy. Kliknij na nie i naciśnij przycisk Info na dole. '
+              'Tam jest ukryty kod.',
         ],
       ),
     };
