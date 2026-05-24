@@ -299,10 +299,11 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = destructive ? const Color(0xFFFF453A) : Colors.white;
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         child: Row(
           children: [
             Container(
