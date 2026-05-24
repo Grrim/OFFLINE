@@ -9,6 +9,7 @@ import 'screens/home_screen.dart';
 import 'screens/lock_screen.dart';
 import 'screens/messages/chat_view.dart';
 import 'services/audio_service.dart';
+import 'services/location_service.dart';
 import 'services/persistence_service.dart';
 import 'state/browser_state.dart';
 import 'state/chapter_state.dart';
@@ -29,6 +30,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await PersistenceService.init();
+  // Start location fetch early — non-blocking, silent fail.
+  LocationService.instance.tryGetLocation();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   // Edge-to-edge mode — hides navigation bar but allows swipe gestures.
@@ -105,11 +108,12 @@ class ZaginionaApp extends StatelessWidget {
 
 /// Adds the Sheriff thread (idempotent), schedules the threat message,
 /// then chains a panic message from Mama 1 second after the Sheriff's
-/// banner lands - creating a double-threat moment (Sheriff coming for
-/// the player, Mama in danger at home).
+/// banner lands - creating a double-threat moment.
 ///
-/// On cold-load both messages are already persisted in their transcripts,
-/// so we only re-attach the Sheriff dialogue graph and bail out.
+/// Also starts a 5-minute countdown — if the player doesn't respond
+/// to the Sheriff in time, auto-triggers the CAUGHT ending.
+Timer? _sheriffCountdown;
+
 Future<void> _triggerSheriffHook(MessagesState messages,
     {required bool fromColdLoad}) async {
   final sheriffGraph = <String, DialogueNode>{
@@ -184,6 +188,22 @@ Future<void> _triggerSheriffHook(MessagesState messages,
     'Wiem, że grzebiesz w tym telefonie. Odłóż go, zanim sam po niego przyjadę.',
     delay: const Duration(seconds: 20),
   );
+
+  // Start countdown — 5 minutes to respond or auto-CAUGHT ending.
+  _sheriffCountdown = Timer(const Duration(minutes: 5), () {
+    if (_sheriffCountdown == null) return; // Already responded.
+    messages.onEndingTriggered?.call('caught');
+  });
+
+  // Warning at 4 minutes (1 min before deadline).
+  Future.delayed(const Duration(minutes: 4), () {
+    if (_sheriffCountdown == null) return; // Already responded.
+    messages.deliverNpcMessage(
+      'szeryf',
+      'Minuta. Albo odpowiadasz, albo jadę.',
+      delay: const Duration(seconds: 1),
+    );
+  });
 
   // 2) 1s after the Sheriff banner slides down, Mama panics.
   // Reuses the same delivery path: appends to her (non-interactive)
@@ -286,6 +306,9 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
       // Dialogue node ending triggers -> EndingState.
       context.read<MessagesState>().onEndingTriggered = (endingId) {
         if (!mounted) return;
+        // Cancel sheriff countdown — player responded in time.
+        _sheriffCountdown?.cancel();
+        _sheriffCountdown = null;
         AudioService.instance.playSfx(GameSfx.endingReveal);
         AudioService.instance.stopTension();
         context.read<EndingState>().trigger(endingId);
@@ -294,6 +317,8 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
       // Journalist hook — opens the TRUTH path.
       context.read<MessagesState>().onJournalistHookTriggered = () {
         if (!mounted) return;
+        _sheriffCountdown?.cancel();
+        _sheriffCountdown = null;
         context.read<MessagesState>().triggerJournalistDialog();
       };
 
@@ -461,11 +486,18 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
   }
 
   /// Anonymous stalker sends creepy messages at timed intervals.
-  /// Non-interactive thread — player can only read, not respond.
+  /// Uses real location and time of day for maximum horror.
   void _scheduleStalkerMessages() {
     final msgs = context.read<MessagesState>();
+    final loc = LocationService.instance;
+    final hour = DateTime.now().hour;
+    final timeComment = hour >= 22 || hour < 6
+        ? 'Ciemno u ciebie, prawda?'
+        : hour >= 18
+            ? 'Wieczór. Zamknij zasłony.'
+            : 'Dzień. Myślisz że jesteś bezpieczny?';
 
-    // 1:00 — first message
+    // 1:00 — first message (generic)
     Future.delayed(const Duration(minutes: 1), () {
       if (!mounted || !context.read<PhoneState>().isUnlocked) return;
       msgs.deliverNpcMessage(
@@ -475,32 +507,50 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
       );
     });
 
-    // 3:00 — second message
-    Future.delayed(const Duration(minutes: 3), () {
+    // 2:30 — uses real time
+    Future.delayed(const Duration(minutes: 2, seconds: 30), () {
       if (!mounted || !context.read<PhoneState>().isUnlocked) return;
       msgs.deliverNpcMessage(
         'stalker',
-        'Nie powinieneś był tego włączać.',
+        timeComment,
         delay: const Duration(seconds: 1),
       );
     });
 
-    // 5:00 — third message
-    Future.delayed(const Duration(minutes: 5), () {
+    // 4:00 — uses real location
+    Future.delayed(const Duration(minutes: 4), () {
       if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      final city = loc.city;
+      final district = loc.district;
+      final text = loc.hasRealLocation
+          ? '$city. $district. Nie ruszaj się.'
+          : 'Wiem gdzie jesteś. Nie ruszaj się.';
       msgs.deliverNpcMessage(
         'stalker',
-        'Wiem gdzie jesteś. Szary budynek. Drugie piętro.',
+        text,
         delay: const Duration(seconds: 1),
       );
     });
 
-    // 7:00 — fourth message (most disturbing)
+    // 5:30 — escalation
+    Future.delayed(const Duration(minutes: 5, seconds: 30), () {
+      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      msgs.deliverNpcMessage(
+        'stalker',
+        'Nie powinieneś był tego włączać. Ten telefon nie jest twój.',
+        delay: const Duration(seconds: 1),
+      );
+    });
+
+    // 7:00 — final warning with location
     Future.delayed(const Duration(minutes: 7), () {
       if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      final text = loc.hasRealLocation
+          ? 'Jadę do ${loc.city}. Odłóż telefon. Ostatnie ostrzeżenie.'
+          : 'Jadę po ciebie. Odłóż telefon. Ostatnie ostrzeżenie.';
       msgs.deliverNpcMessage(
         'stalker',
-        'Odłóż telefon. Ostatnie ostrzeżenie.',
+        text,
         delay: const Duration(seconds: 1),
       );
     });
