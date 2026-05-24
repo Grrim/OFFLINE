@@ -117,8 +117,9 @@ class SettingsView extends StatelessWidget {
                       icon: Icons.battery_full,
                       iconBg: const Color(0xFF34C759),
                       label: 'Bateria',
-                      value: '37%',
-                      onTap: () => _showSettingFeedback(context, 'Stan baterii: 89% · Ostatnie ładowanie: wczoraj 18:00'),
+                      value: '${_currentBattery()}%',
+                      onTap: () => _showSettingFeedback(context,
+                          'Stan baterii: 89% · Ostatnie ładowanie: wczoraj 18:00'),
                     ),
                     _SettingsRow(
                       icon: Icons.storage,
@@ -161,6 +162,10 @@ class SettingsView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  int _currentBattery() {
+    return StatusBar.currentBattery;
   }
 
   void _showSettingFeedback(BuildContext context, String msg) {

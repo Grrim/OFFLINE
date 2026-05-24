@@ -8,6 +8,9 @@ class StatusBar extends StatefulWidget {
 
   final Color foregroundColor;
 
+  /// Public battery accessor for other widgets (e.g. Settings).
+  static int get currentBattery => _StatusBarState.currentBattery;
+
   @override
   State<StatusBar> createState() => _StatusBarState();
 }
@@ -20,11 +23,14 @@ class _StatusBarState extends State<StatusBar> {
   static DateTime? _sessionStart;
   static const int _startBattery = 37;
 
-  int get _battery {
+  /// Public accessor for other widgets (e.g. Settings).
+  static int get currentBattery {
     final start = _sessionStart ??= DateTime.now();
     final elapsed = DateTime.now().difference(start).inMinutes;
     return (_startBattery - elapsed).clamp(5, 100);
   }
+
+  int get _battery => currentBattery;
 
   @override
   void initState() {
