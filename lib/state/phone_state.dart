@@ -41,7 +41,14 @@ class PhoneState extends ChangeNotifier {
       return true;
     }
     _failedAttempts += 1;
-    _lastError = 'Nieprawidłowy kod';
+    // Easter egg responses for common PINs.
+    if (pin == '1234' || pin == '0000') {
+      _lastError = 'Serio? Spróbuj czegoś mądrzejszego.';
+    } else if (pin == '2580') {
+      _lastError = 'Środkowa kolumna? Kreatywnie, ale nie.';
+    } else {
+      _lastError = 'Nieprawidłowy kod';
+    }
     notifyListeners();
     return false;
   }

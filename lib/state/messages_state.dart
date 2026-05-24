@@ -448,12 +448,24 @@ class MessagesState extends ChangeNotifier {
     String text, {
     Duration delay = _typingDelay,
   }) async {
-    // Auto-create thread if it doesn't exist (e.g. stalker).
+    // Auto-create thread if it doesn't exist (e.g. stalker, scheduled).
     if (!_threads.containsKey(threadId)) {
+      String name;
+      int? color;
+      switch (threadId) {
+        case 'stalker':
+          name = '+48 *** *** ***';
+          color = 0xFF000000;
+        case 'n_scheduled':
+          name = 'N. (zaplanowana)';
+          color = 0xFFE08AB0;
+        default:
+          name = threadId;
+      }
       _threads[threadId] = ChatThread(
         id: threadId,
-        contactName: threadId == 'stalker' ? '+48 *** *** ***' : threadId,
-        avatarColor: threadId == 'stalker' ? 0xFF000000 : null,
+        contactName: name,
+        avatarColor: color,
         messages: [],
         isInteractive: false,
       );

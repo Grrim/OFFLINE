@@ -26,6 +26,7 @@ import 'widgets/chapter_transition_overlay.dart';
 import 'widgets/ending_overlay.dart';
 import 'widgets/glitch_overlay.dart';
 import 'widgets/notification_banner.dart';
+import 'widgets/scare_overlay.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -393,6 +394,43 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
           delay: const Duration(seconds: 6),
         );
       };
+
+      // Scheduled message from N. — arrives 3.5 min after unlock.
+      // Simulates a "delayed send" that N. set up before disappearing.
+      Future.delayed(const Duration(minutes: 3, seconds: 30), () {
+        if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+        context.read<MessagesState>().deliverNpcMessage(
+          'n_scheduled',
+          'Jeśli to czytasz, to znaczy że nie wróciłam. '
+              'Przepraszam. Nie chciałam żeby ktokolwiek w to wchodził. '
+              'Ale skoro już tu jesteś — proszę, nie odpuszczaj. '
+              'Oni liczą na to, że wszyscy się boją. Udowodnij im, '
+              'że się mylą.',
+          delay: const Duration(seconds: 2),
+        );
+      });
+
+      // Stalker "nice photo" — 3 min after unlock, pretends to use camera.
+      Future.delayed(const Duration(minutes: 3), () {
+        if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+        context.read<NotificationsState>().push(AppNotification(
+          id: 'creepy_photo',
+          appName: 'Aparat',
+          title: 'Zdjęcie zapisane',
+          body: 'Przedni aparat · 1 nowe zdjęcie',
+          icon: Icons.camera_front,
+          iconBg: const Color(0xFFFF453A),
+        ));
+        // 5s later stalker comments on it.
+        Future.delayed(const Duration(seconds: 5), () {
+          if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+          context.read<MessagesState>().deliverNpcMessage(
+            'stalker',
+            'Ładne zdjęcie.',
+            delay: const Duration(seconds: 1),
+          );
+        });
+      });
     });
   }
 
@@ -702,6 +740,10 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
           ),
         if (unlocked && !hasEnding)
           Positioned.fill(child: GlitchOverlay(active: glitchActive)),
+        if (unlocked && !hasEnding)
+          Positioned.fill(
+            child: ScareOverlay(active: unlocked && !hasEnding),
+          ),
         if (hasEnding) const Positioned.fill(child: EndingOverlay()),
 
         // Chapter 2 transition overlay — appears once when crossing

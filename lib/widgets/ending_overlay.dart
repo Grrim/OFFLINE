@@ -67,6 +67,42 @@ class _EndingScreenState extends State<_EndingScreen>
     super.dispose();
   }
 
+  Widget _buildStats(BuildContext context) {
+    final files = context.read<FilesState>();
+    final photos = context.read<PhotosState>();
+
+    final filesRead = files.openedCount;
+    final filesTotal = files.files.length;
+    final photosInspected = photos.photos.where((p) => p.isCluePhoto && photos.hasInspected(p.id)).length;
+    final photosClueTotal = photos.photos.where((p) => p.isCluePhoto).length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'STATYSTYKI',
+            style: TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _StatRow(label: 'Pliki przeczytane', value: '$filesRead / $filesTotal'),
+          _StatRow(label: 'Wskazówki odkryte', value: '$photosInspected / $photosClueTotal'),
+          _StatRow(label: 'Zakończenie', value: widget.ending.title),
+        ],
+      ),
+    );
+  }
+
   Future<void> _restart(BuildContext context) async {
     await PersistenceService.instance.clearAll();
     await AudioService.instance.reset();
@@ -164,6 +200,12 @@ class _EndingScreenState extends State<_EndingScreen>
                           ),
                         ),
                         const SizedBox(height: 48),
+                        // Stats.
+                        Opacity(
+                          opacity: t,
+                          child: _buildStats(context),
+                        ),
+                        const SizedBox(height: 24),
                         Opacity(
                           opacity: t,
                           child: OutlinedButton(
@@ -207,6 +249,26 @@ class _EndingScreenState extends State<_EndingScreen>
           ],
         );
       },
+    );
+  }
+}
+
+class _StatRow extends StatelessWidget {
+  const _StatRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 }
