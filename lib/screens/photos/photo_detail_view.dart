@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/audio_service.dart';
 import '../../state/photos_state.dart';
 import 'photo_thumbnail.dart';
 
@@ -117,7 +118,7 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
     HapticFeedback.lightImpact();
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         backgroundColor: const Color(0xFF1C1C1E),
         title: const Text('Usunąć zdjęcie?',
             style: TextStyle(color: Colors.white)),
@@ -127,21 +128,34 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Anuluj',
                 style: TextStyle(color: Color(0xFF0A84FF))),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogCtx);
+              HapticFeedback.heavyImpact();
+              // Glitch effect + error message + return to gallery.
+              AudioService.instance.playSfx(GameSfx.glitchBurst);
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()
                 ..showSnackBar(const SnackBar(
-                  content: Text('Nie można usunąć — brak uprawnień'),
-                  duration: Duration(seconds: 2),
+                  content: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Color(0xFFFF453A), size: 18),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('Błąd: odmowa dostępu. Plik chroniony.')),
+                    ],
+                  ),
+                  duration: Duration(seconds: 3),
                   behavior: SnackBarBehavior.floating,
-                  backgroundColor: Color(0xFF2C2C2E),
+                  backgroundColor: Color(0xFF1A0A0A),
                 ));
+              // Return to gallery after a moment.
+              Future.delayed(const Duration(seconds: 1), () {
+                if (context.mounted) Navigator.of(context).maybePop();
+              });
             },
             child: const Text('Usuń',
                 style: TextStyle(color: Color(0xFFFF453A))),
@@ -219,7 +233,7 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
               ),
             ),
 
-            // ---- Swipeable photos ----
+            // ---- Swipeable photos with pinch-to-zoom ----
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -227,10 +241,14 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
                 onPageChanged: (i) => setState(() => _currentIndex = i),
                 itemBuilder: (context, i) {
                   final p = photos[i];
-                  return PhotoThumbnail(
-                    photo: p,
-                    fit: BoxFit.contain,
-                    iconSize: 96,
+                  return InteractiveViewer(
+                    minScale: 1.0,
+                    maxScale: 4.0,
+                    child: PhotoThumbnail(
+                      photo: p,
+                      fit: BoxFit.contain,
+                      iconSize: 96,
+                    ),
                   );
                 },
               ),

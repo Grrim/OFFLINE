@@ -55,28 +55,33 @@ class SettingsView extends StatelessWidget {
                 children: [
                   const _SectionLabel(text: 'OGÓLNE'),
                   _SettingsGroup(rows: [
-                    const _SettingsRow(
+                    _SettingsRow(
                       icon: Icons.airplanemode_active,
-                      iconBg: Color(0xFFFF9500),
+                      iconBg: const Color(0xFFFF9500),
                       label: 'Tryb samolotowy',
-                      trailing: _Toggle(value: false),
+                      trailing: const _Toggle(value: false),
+                      onTap: () => _showSettingFeedback(context, 'Tryb samolotowy jest wyłączony'),
                     ),
-                    const _SettingsRow(
+                    _SettingsRow(
                       icon: Icons.wifi,
-                      iconBg: Color(0xFF0A84FF),
+                      iconBg: const Color(0xFF0A84FF),
                       label: 'Wi-Fi',
-                      value: 'Niepołączono',
+                      value: 'HB_Guest_5G',
+                      onTap: () => _showSettingFeedback(context, 'Połączono z: HB_Guest_5G (nieszyfrowane)'),
                     ),
-                    const _SettingsRow(
+                    _SettingsRow(
                       icon: Icons.bluetooth,
-                      iconBg: Color(0xFF0A84FF),
+                      iconBg: const Color(0xFF0A84FF),
                       label: 'Bluetooth',
                       value: 'Wyłączony',
+                      onTap: () => _showSettingFeedback(context, 'Bluetooth jest wyłączony'),
                     ),
-                    const _SettingsRow(
+                    _SettingsRow(
                       icon: Icons.signal_cellular_alt,
-                      iconBg: Color(0xFF34C759),
+                      iconBg: const Color(0xFF34C759),
                       label: 'Komórkowe',
+                      value: 'Brak zasięgu',
+                      onTap: () => _showSettingFeedback(context, 'Brak karty SIM lub zasięgu'),
                     ),
                     _SettingsRow(
                       icon: Icons.volume_off,
@@ -84,21 +89,50 @@ class SettingsView extends StatelessWidget {
                       label: 'Wycisz dźwięki',
                       trailing: _MuteToggle(),
                     ),
+                    _SettingsRow(
+                      icon: Icons.notifications,
+                      iconBg: const Color(0xFFFF453A),
+                      label: 'Powiadomienia',
+                      value: 'Włączone',
+                      onTap: () => _showSettingFeedback(context, 'Nie można zmienić ustawień powiadomień'),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.lock,
+                      iconBg: const Color(0xFF34C759),
+                      label: 'Kod i Face ID',
+                      onTap: () => _showSettingFeedback(context, 'Wymagane uwierzytelnienie właściciela'),
+                    ),
                   ]),
                   const SizedBox(height: 24),
                   const _SectionLabel(text: 'INFORMACJE'),
-                  const _SettingsGroup(rows: [
+                  _SettingsGroup(rows: [
                     _SettingsRow(
                       icon: Icons.info_outline,
-                      iconBg: Color(0xFF8E8E93),
+                      iconBg: const Color(0xFF8E8E93),
                       label: 'Model',
-                      value: 'iPhone',
+                      value: 'iPhone 15 Pro',
+                      onTap: () => _showSettingFeedback(context, 'iPhone 15 Pro · 256 GB · iOS 18.4'),
                     ),
                     _SettingsRow(
                       icon: Icons.battery_full,
-                      iconBg: Color(0xFF34C759),
+                      iconBg: const Color(0xFF34C759),
                       label: 'Bateria',
                       value: '37%',
+                      onTap: () => _showSettingFeedback(context, 'Stan baterii: 89% · Ostatnie ładowanie: wczoraj 18:00'),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.storage,
+                      iconBg: const Color(0xFF8E8E93),
+                      label: 'Pamięć',
+                      value: '47 GB / 256 GB',
+                      onTap: () => _showSettingFeedback(context, 'Zdjęcia: 12 GB · Aplikacje: 28 GB · System: 7 GB'),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.person,
+                      iconBg: const Color(0xFF0A84FF),
+                      label: 'Właściciel',
+                      value: 'N.',
+                      onTap: () => _showSettingFeedback(context, 'Apple ID: n.***@icloud.com · Zalogowano'),
                     ),
                   ]),
                   const SizedBox(height: 24),
@@ -127,6 +161,17 @@ class SettingsView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showSettingFeedback(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(msg),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2C2C2E),
+      ));
   }
 
   Future<void> _confirmReset(BuildContext context) async {
