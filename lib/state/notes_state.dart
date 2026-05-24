@@ -175,6 +175,42 @@ class NotesState extends ChangeNotifier {
             'naszym stoliku. Może paranoja. Może nie.',
         dateString: '10 maja 2026',
       ),
+      NoteItem(
+        id: 'timeline',
+        title: 'Oś czasu — co wiem',
+        body:
+            'LUTY 2026:\n'
+            '- Dostaję anonimowy raport o Helion-Bud\n'
+            '- Pierwsza faktura: 10.000 PLN za "konsulting"\n\n'
+            'MARZEC 2026:\n'
+            '- Kupuję dyktafon (Allegro)\n'
+            '- Pierwsze nagranie: 28.03, parking, 14:22\n'
+            '- Kontaktuję Anitę Z. z Gazety\n\n'
+            'KWIECIEŃ 2026:\n'
+            '- Drugie nagranie\n'
+            '- Kwota rośnie: 12.000\n'
+            '- Zaczynam robić zdjęcia\n\n'
+            'MAJ 2026:\n'
+            '- Trzecie nagranie (10.05) — 14.000 PLN\n'
+            '- Włamanie do mieszkania (12.05)\n'
+            '- Samochód pod domem (15.05)\n'
+            '- ??? (co dalej?)',
+        dateString: '16 maja 2026',
+      ),
+      NoteItem(
+        id: 'contacts',
+        title: 'Ważne kontakty (backup)',
+        body:
+            'Anita Z. (Gazeta) — Signal: +48 512 *** ***\n'
+            'T.W. (sąsiad) — nr 14, 2 piętro\n'
+            'Stowarzyszenie Strażnicy Lasu — straznicylasu.org\n'
+            'Prokuratura Okręgowa (dyżurny) — ul. Chocimska 28\n\n'
+            'NIE KONTAKTOWAĆ:\n'
+            '- Komenda Powiatowa (K. = Szeryf)\n'
+            '- Komenda Miejska (nie wiem kto jeszcze jest w to wplątany)\n'
+            '- Numer 112 (przekierowuje na powiatową)',
+        dateString: '16 maja 2026',
+      ),
     ]);
   }
 

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/photos_state.dart';
 import 'photo_thumbnail.dart';
 
-/// Fullscreen photo viewer with a top back chevron and a bottom action bar
-/// (Share / Favorite / Info). The Info button slides up an OS-style EXIF
-/// bottom sheet that, for the clue photo, also reveals the hidden note.
+/// Fullscreen photo viewer with swipe left/right between photos,
+/// a top back chevron, and a bottom action bar (Share / Favorite / Info / Delete).
 class PhotoDetailView extends StatefulWidget {
   const PhotoDetailView({super.key, required this.photoId});
 
@@ -17,12 +17,27 @@ class PhotoDetailView extends StatefulWidget {
 }
 
 class _PhotoDetailViewState extends State<PhotoDetailView> {
+  late PageController _pageController;
+  late int _currentIndex;
   bool _favorite = false;
 
-  void _showInfoSheet(BuildContext context, PhotoItem photo) {
-    // Mark the clue photo as inspected the moment the player opens Info.
-    context.read<PhotosState>().markInspected(photo.id);
+  @override
+  void initState() {
+    super.initState();
+    final photos = context.read<PhotosState>().photos;
+    _currentIndex = photos.indexWhere((p) => p.id == widget.photoId);
+    if (_currentIndex < 0) _currentIndex = 0;
+    _pageController = PageController(initialPage: _currentIndex);
+  }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _showInfoSheet(BuildContext context, PhotoItem photo) {
+    context.read<PhotosState>().markInspected(photo.id);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -31,15 +46,132 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
     );
   }
 
+  void _showShareSheet(BuildContext context) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text('Udostępnij', style: TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600,
+              )),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _ShareOption(icon: Icons.message, label: 'Wiadomości', onTap: () {
+                    Navigator.pop(context);
+                    _showNoConnection(context);
+                  }),
+                  _ShareOption(icon: Icons.mail, label: 'Mail', onTap: () {
+                    Navigator.pop(context);
+                    _showNoConnection(context);
+                  }),
+                  _ShareOption(icon: Icons.copy, label: 'Kopiuj', onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(const SnackBar(
+                        content: Text('Skopiowano do schowka'),
+                        duration: Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                  }),
+                  _ShareOption(icon: Icons.save_alt, label: 'Zapisz', onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(const SnackBar(
+                        content: Text('Zdjęcie jest już zapisane na urządzeniu'),
+                        duration: Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                  }),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirm(BuildContext context) {
+    HapticFeedback.lightImpact();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text('Usunąć zdjęcie?',
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'To zdjęcie może być dowodem. Czy na pewno chcesz je usunąć?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Anuluj',
+                style: TextStyle(color: Color(0xFF0A84FF))),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(const SnackBar(
+                  content: Text('Nie można usunąć — brak uprawnień'),
+                  duration: Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: Color(0xFF2C2C2E),
+                ));
+            },
+            child: const Text('Usuń',
+                style: TextStyle(color: Color(0xFFFF453A))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNoConnection(BuildContext context) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.wifi_off, color: Colors.white70, size: 18),
+            SizedBox(width: 8),
+            Text('Brak połączenia — nie można wysłać'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Color(0xFF2C2C2E),
+      ));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final photo = context
-        .watch<PhotosState>()
-        .photos
-        .firstWhere(
-          (p) => p.id == widget.photoId,
-          orElse: () => context.read<PhotosState>().photos.first,
-        );
+    final photos = context.watch<PhotosState>().photos;
+    final photo = photos[_currentIndex];
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -78,20 +210,29 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 36), // visual balance
+                  // Photo counter.
+                  Text(
+                    '${_currentIndex + 1}/${photos.length}',
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
                 ],
               ),
             ),
 
-            // ---- Photo ----
+            // ---- Swipeable photos ----
             Expanded(
-              child: Hero(
-                tag: 'photo_${photo.id}',
-                child: PhotoThumbnail(
-                  photo: photo,
-                  fit: BoxFit.contain,
-                  iconSize: 96,
-                ),
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: photos.length,
+                onPageChanged: (i) => setState(() => _currentIndex = i),
+                itemBuilder: (context, i) {
+                  final p = photos[i];
+                  return PhotoThumbnail(
+                    photo: p,
+                    fit: BoxFit.contain,
+                    iconSize: 96,
+                  );
+                },
               ),
             ),
 
@@ -107,14 +248,17 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
                   _ActionIcon(
                     icon: Icons.ios_share,
                     color: const Color(0xFF0A84FF),
-                    onTap: () => _comingSoon(context, 'Udostępnianie'),
+                    onTap: () => _showShareSheet(context),
                   ),
                   _ActionIcon(
                     icon: _favorite ? Icons.favorite : Icons.favorite_border,
                     color: _favorite
                         ? const Color(0xFFFF453A)
                         : const Color(0xFF0A84FF),
-                    onTap: () => setState(() => _favorite = !_favorite),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() => _favorite = !_favorite);
+                    },
                   ),
                   _ActionIcon(
                     icon: Icons.info_outline,
@@ -124,7 +268,7 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
                   _ActionIcon(
                     icon: Icons.delete_outline,
                     color: const Color(0xFF0A84FF),
-                    onTap: () => _comingSoon(context, 'Usuwanie'),
+                    onTap: () => _showDeleteConfirm(context),
                   ),
                 ],
               ),
@@ -134,25 +278,46 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
       ),
     );
   }
+}
 
-  void _comingSoon(BuildContext context, String label) {
-    final msg = label == 'Udostępnianie'
-        ? 'Brak połączenia — nie można udostępnić'
-        : 'Nie masz uprawnień do usunięcia tego zdjęcia';
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF2C2C2E),
-        ),
-      );
+// ---- Share option ----
+
+class _ShareOption extends StatelessWidget {
+  const _ShareOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 50, height: 50,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2C2C2E),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(
+            color: Colors.white70, fontSize: 11,
+          )),
+        ],
+      ),
+    );
   }
 }
 
-// ----------------- Action icon -----------------
+// ---- Action icon ----
 
 class _ActionIcon extends StatelessWidget {
   const _ActionIcon({
@@ -178,11 +343,10 @@ class _ActionIcon extends StatelessWidget {
   }
 }
 
-// ----------------- EXIF sheet -----------------
+// ---- EXIF sheet ----
 
 class _ExifSheet extends StatelessWidget {
   const _ExifSheet({required this.photo});
-
   final PhotoItem photo;
 
   @override
@@ -196,8 +360,7 @@ class _ExifSheet extends StatelessWidget {
         return Container(
           decoration: const BoxDecoration(
             color: Color(0xFF1C1C1E),
-            borderRadius:
-                BorderRadius.vertical(top: Radius.circular(18)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
           ),
           child: SingleChildScrollView(
             controller: scrollController,
@@ -205,55 +368,28 @@ class _ExifSheet extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Drag handle
                 Center(
                   child: Container(
-                    width: 36,
-                    height: 4,
+                    width: 36, height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.25),
+                      color: Colors.white24,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-                const Text(
-                  'Informacje',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                const Text('Informacje', style: TextStyle(
+                  color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700,
+                )),
                 const SizedBox(height: 14),
-                _ExifGroup(rows: [
-                  _ExifRow(
-                    icon: Icons.calendar_today,
-                    label: 'Data wykonania',
-                    value: photo.dateString,
-                  ),
-                  _ExifRow(
-                    icon: Icons.location_on_outlined,
-                    label: 'Lokalizacja',
-                    value: photo.location,
-                  ),
-                  _ExifRow(
-                    icon: Icons.camera_alt_outlined,
-                    label: 'Aparat',
-                    value: photo.camera,
-                  ),
-                ]),
+                _ExifRow(icon: Icons.calendar_today, label: 'Data', value: photo.dateString),
+                _ExifRow(icon: Icons.location_on_outlined, label: 'Lokalizacja', value: photo.location),
+                _ExifRow(icon: Icons.camera_alt_outlined, label: 'Aparat', value: photo.camera),
                 if (photo.isCluePhoto && photo.hiddenNote != null) ...[
                   const SizedBox(height: 18),
-                  const Text(
-                    'Komentarz pliku',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
+                  const Text('Komentarz pliku', style: TextStyle(
+                    color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500,
+                  )),
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
@@ -263,7 +399,6 @@ class _ExifSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: const Color(0xFFFF453A).withValues(alpha: 0.45),
-                        width: 1,
                       ),
                     ),
                     child: Text(
@@ -272,7 +407,7 @@ class _ExifSheet extends StatelessWidget {
                         color: Color(0xFFFFB1AC),
                         fontSize: 14,
                         height: 1.35,
-                        fontFamily: 'Courier', // monospace gives it a "raw EXIF" feel
+                        fontFamily: 'Courier',
                       ),
                     ),
                   ),
@@ -286,40 +421,8 @@ class _ExifSheet extends StatelessWidget {
   }
 }
 
-class _ExifGroup extends StatelessWidget {
-  const _ExifGroup({required this.rows});
-  final List<_ExifRow> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            rows[i],
-            if (i != rows.length - 1)
-              const Padding(
-                padding: EdgeInsets.only(left: 52),
-                child: Divider(height: 1, color: Color(0xFF3A3A3C)),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _ExifRow extends StatelessWidget {
-  const _ExifRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
+  const _ExifRow({required this.icon, required this.label, required this.value});
   final IconData icon;
   final String label;
   final String value;
@@ -327,9 +430,8 @@ class _ExifRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: const Color(0xFF0A84FF), size: 20),
           const SizedBox(width: 14),
@@ -337,22 +439,9 @@ class _ExifRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                Text(label, style: const TextStyle(color: Colors.white60, fontSize: 12)),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                  ),
-                ),
+                Text(value, style: const TextStyle(color: Colors.white, fontSize: 15)),
               ],
             ),
           ),

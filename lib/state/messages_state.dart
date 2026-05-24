@@ -686,7 +686,64 @@ class MessagesState extends ChangeNotifier {
           timestamp: now.subtract(const Duration(hours: 10)),
         ),
       ],
-      isInteractive: false,
+      isInteractive: true,
+      dialogueGraph: {
+        'respond': const DialogueNode(
+          id: 'respond',
+          choices: [
+            DialogueChoice(
+              text: 'Mamo, to nie N. Znalazłem jej telefon. Ona zniknęła.',
+              nextNodeId: 'shock',
+            ),
+            DialogueChoice(
+              text: 'Wszystko OK, nie martw się. Odezwę się później.',
+              nextNodeId: 'lie',
+            ),
+          ],
+        ),
+        'shock': const DialogueNode(
+          id: 'shock',
+          npcMessages: [
+            'Co?? Jak to zniknęła?! Kto to pisze?!',
+            'Boże... Dzwonię na policję. Natychmiast.',
+          ],
+          choices: [
+            DialogueChoice(
+              text: 'NIE dzwoń na policję! Policja jest w to zamieszana!',
+              nextNodeId: 'warning',
+            ),
+          ],
+        ),
+        'warning': const DialogueNode(
+          id: 'warning',
+          npcMessages: [
+            'Co ty mówisz... Jak to zamieszana...',
+            'Dobrze. Nie dzwonię. Ale powiedz mi co się dzieje.',
+            'Błagam, powiedz mi że moja córka żyje.',
+          ],
+          choices: [
+            DialogueChoice(
+              text: 'Robię wszystko co mogę żeby ją znaleźć. Zaufaj mi.',
+              nextNodeId: 'trust',
+            ),
+          ],
+        ),
+        'trust': const DialogueNode(
+          id: 'trust',
+          npcMessages: [
+            'Dobrze... Dobrze. Ufam ci.',
+            'Proszę, bądź ostrożny. Kimkolwiek jesteś.',
+          ],
+        ),
+        'lie': const DialogueNode(
+          id: 'lie',
+          npcMessages: [
+            'Kochanie? Czemu piszesz tak dziwnie?',
+            'To nie brzmi jak ty. Co się dzieje?',
+          ],
+        ),
+      },
+      currentNodeId: 'respond',
     );
 
     const introLine =

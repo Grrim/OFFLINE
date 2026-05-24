@@ -8,7 +8,9 @@ import '../state/photos_state.dart';
 import '../widgets/status_bar.dart';
 import 'browser/browser_view.dart';
 import 'calendar/calendar_view.dart';
+import 'email/email_view.dart';
 import 'files/files_view.dart';
+import 'maps/maps_view.dart';
 import 'messages/messages_list_view.dart';
 import 'notes/notes_view.dart';
 import 'phone/phone_view.dart';
@@ -60,6 +62,14 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
+        label: 'Poczta',
+        icon: Icons.mail,
+        color: const Color(0xFF0A84FF),
+        onOpen: (ctx) => Navigator.of(ctx).push(
+          MaterialPageRoute(builder: (_) => const EmailView()),
+        ),
+      ),
+      _AppEntry(
         label: 'Zdjęcia',
         icon: Icons.photo,
         color: const Color(0xFFFF9F0A),
@@ -108,6 +118,14 @@ class HomeScreen extends StatelessWidget {
         color: const Color(0xFFFF453A),
         onOpen: (ctx) => Navigator.of(ctx).push(
           MaterialPageRoute(builder: (_) => const CalendarView()),
+        ),
+      ),
+      _AppEntry(
+        label: 'Mapy',
+        icon: Icons.map,
+        color: const Color(0xFF34C759),
+        onOpen: (ctx) => Navigator.of(ctx).push(
+          MaterialPageRoute(builder: (_) => const MapsView()),
         ),
       ),
       _AppEntry(
