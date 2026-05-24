@@ -8,6 +8,7 @@ import '../state/photos_state.dart';
 import '../widgets/status_bar.dart';
 import 'browser/browser_view.dart';
 import 'calendar/calendar_view.dart';
+import 'contacts/contacts_view.dart';
 import 'email/email_view.dart';
 import 'files/files_view.dart';
 import 'maps/maps_view.dart';
@@ -15,6 +16,7 @@ import 'messages/messages_list_view.dart';
 import 'notes/notes_view.dart';
 import 'phone/phone_view.dart';
 import 'photos/photos_grid_view.dart';
+import 'recorder/recorder_view.dart';
 import 'settings/settings_view.dart';
 
 /// Home screen / launcher with a 4-app grid.
@@ -70,6 +72,14 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
+        label: 'Kontakty',
+        icon: Icons.contacts,
+        color: const Color(0xFF8E8E93),
+        onOpen: (ctx) => Navigator.of(ctx).push(
+          MaterialPageRoute(builder: (_) => const ContactsView()),
+        ),
+      ),
+      _AppEntry(
         label: 'Zdjęcia',
         icon: Icons.photo,
         color: const Color(0xFFFF9F0A),
@@ -118,6 +128,14 @@ class HomeScreen extends StatelessWidget {
         color: const Color(0xFFFF453A),
         onOpen: (ctx) => Navigator.of(ctx).push(
           MaterialPageRoute(builder: (_) => const CalendarView()),
+        ),
+      ),
+      _AppEntry(
+        label: 'Dyktafon',
+        icon: Icons.mic,
+        color: const Color(0xFFFF453A),
+        onOpen: (ctx) => Navigator.of(ctx).push(
+          MaterialPageRoute(builder: (_) => const RecorderView()),
         ),
       ),
       _AppEntry(
