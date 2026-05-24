@@ -227,17 +227,15 @@ class MessagesState extends ChangeNotifier {
   // ---------- Phase 4 / 5 hooks ----------
 
   /// Ensures a thread exists and wires up its dialogue graph if any.
-  /// Idempotent: existing threads are not overwritten.
+  /// Idempotent: existing threads keep their messages but get the graph
+  /// restored (important for cold-load where graph isn't persisted).
   void ensureThread(ChatThread thread) {
     if (_threads.containsKey(thread.id)) {
-      // If we previously persisted a non-interactive variant but now want
-      // to upgrade it to interactive (Phase 5 - first cold-load with the
-      // Sheriff hook already fired in a previous Phase 4 run), patch it.
       final existing = _threads[thread.id]!;
-      if (!existing.isInteractive && thread.isInteractive) {
-        existing.isInteractive = true;
-        existing.currentNodeId ??= thread.currentNodeId;
-        // Replace the graph on the same instance.
+
+      // Always restore the dialogue graph if the existing thread lost it
+      // (e.g. after cold-load from persistence which doesn't save graphs).
+      if (existing.dialogueGraph == null && thread.dialogueGraph != null) {
         _threads[thread.id] = ChatThread(
           id: existing.id,
           contactName: existing.contactName,
@@ -246,7 +244,19 @@ class MessagesState extends ChangeNotifier {
           currentNodeId: existing.currentNodeId ?? thread.currentNodeId,
           unreadCount: existing.unreadCount,
           isInteractive: true,
-          avatarColor: existing.avatarColor,
+          avatarColor: existing.avatarColor ?? thread.avatarColor,
+        );
+      } else if (!existing.isInteractive && thread.isInteractive) {
+        // Upgrade non-interactive to interactive.
+        _threads[thread.id] = ChatThread(
+          id: existing.id,
+          contactName: existing.contactName,
+          messages: existing.messages,
+          dialogueGraph: thread.dialogueGraph,
+          currentNodeId: existing.currentNodeId ?? thread.currentNodeId,
+          unreadCount: existing.unreadCount,
+          isInteractive: true,
+          avatarColor: existing.avatarColor ?? thread.avatarColor,
         );
       }
       notifyListeners();

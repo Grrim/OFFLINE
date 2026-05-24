@@ -70,7 +70,9 @@ class _ChatViewState extends State<ChatView> {
       _autoScroll();
     }
 
-    final choices = messages.currentChoices;
+    final choices = thread.isInteractive && thread.dialogueGraph != null && !isTypingHere
+        ? (thread.dialogueGraph![thread.currentNodeId]?.choices ?? const [])
+        : const <DialogueChoice>[];
 
     return Scaffold(
       backgroundColor: Colors.black,
