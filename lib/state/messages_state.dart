@@ -208,7 +208,8 @@ class MessagesState extends ChangeNotifier {
   Future<void> selectChoice(DialogueChoice choice) async {
     final t = activeThread;
     if (t == null) return;
-    if (_isNpcTyping) return;
+    // Only block if NPC is typing in THIS thread.
+    if (_isNpcTyping && _typingThreadId == t.id) return;
 
     t.messages.add(ChatMessage(
       sender: MessageSender.player,
@@ -216,6 +217,7 @@ class MessagesState extends ChangeNotifier {
       timestamp: DateTime.now(),
     ));
     _isNpcTyping = true;
+    _typingThreadId = t.id;
     notifyListeners();
     _save();
 
