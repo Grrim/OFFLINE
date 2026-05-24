@@ -108,7 +108,7 @@ class _GlitchOverlayState extends State<GlitchOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_glitching) return const SizedBox.shrink();
+    if (!_glitching) return const IgnorePointer(child: SizedBox.shrink());
 
     return IgnorePointer(
       child: Stack(

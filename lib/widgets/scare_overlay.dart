@@ -77,7 +77,9 @@ class _ScareOverlayState extends State<ScareOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentScare == null) return const SizedBox.shrink();
+    if (_currentScare == null) {
+      return const IgnorePointer(child: SizedBox.shrink());
+    }
 
     // Blackout blocks all input (phone is "dead").
     // Fake crash allows tapping the dismiss button.
