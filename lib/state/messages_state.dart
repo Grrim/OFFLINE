@@ -70,13 +70,13 @@ class ChatThread {
   ChatThread({
     required this.id,
     required this.contactName,
-    required this.messages,
+    required List<ChatMessage> messages,
     this.dialogueGraph,
     this.currentNodeId,
     this.unreadCount = 0,
     this.isInteractive = false,
     this.avatarColor,
-  });
+  }) : messages = List<ChatMessage>.of(messages);
 
   final String id;
   final String contactName;
@@ -239,7 +239,7 @@ class MessagesState extends ChangeNotifier {
         _threads[thread.id] = ChatThread(
           id: existing.id,
           contactName: existing.contactName,
-          messages: existing.messages,
+          messages: List<ChatMessage>.from(existing.messages),
           dialogueGraph: thread.dialogueGraph,
           currentNodeId: existing.currentNodeId ?? thread.currentNodeId,
           unreadCount: existing.unreadCount,
@@ -251,7 +251,7 @@ class MessagesState extends ChangeNotifier {
         _threads[thread.id] = ChatThread(
           id: existing.id,
           contactName: existing.contactName,
-          messages: existing.messages,
+          messages: List<ChatMessage>.from(existing.messages),
           dialogueGraph: thread.dialogueGraph,
           currentNodeId: existing.currentNodeId ?? thread.currentNodeId,
           unreadCount: existing.unreadCount,
