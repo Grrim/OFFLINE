@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'screens/boot_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/intro_screen.dart';
 import 'screens/lock_screen.dart';
 import 'screens/messages/chat_view.dart';
 import 'services/audio_service.dart';
@@ -251,6 +252,7 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
   final _navKey = GlobalKey<NavigatorState>();
   bool _wasUnlocked = false;
   bool _tensionActive = false;
+  bool _introComplete = false;
   bool _bootComplete = false;
   Timer? _ringerTimer;
 
@@ -573,6 +575,13 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Intro sequence — narrative frame before boot.
+    if (!_introComplete) {
+      return IntroScreen(
+        onComplete: () => setState(() => _introComplete = true),
+      );
+    }
+
     // Boot sequence — show once on app start.
     if (!_bootComplete) {
       return BootScreen(
