@@ -113,7 +113,7 @@ abstract class AppLocalizations {
   /// Tytuł aplikacji w trybie systemowym
   ///
   /// In pl, this message translates to:
-  /// **'N. IS OFFLINE'**
+  /// **'N. Is Offline'**
   String get appTitle;
 
   /// No description provided for @lockEnterPin.

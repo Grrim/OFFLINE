@@ -9,7 +9,7 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
-  String get appTitle => 'N. IS OFFLINE';
+  String get appTitle => 'N. Is Offline';
 
   @override
   String get lockEnterPin => 'Wprowadź hasło';
