@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../state/notes_state.dart';
 import '../../state/photos_state.dart';
+import '../../widgets/fragment_hotspot.dart';
 import '../../widgets/numeric_keypad.dart';
 import '../../widgets/status_bar.dart';
 
@@ -71,11 +72,20 @@ class NotesView extends StatelessWidget {
                 ),
                 itemBuilder: (context, i) {
                   final note = notes.notes[i];
-                  return _NoteTile(
+                  final tile = _NoteTile(
                     note: note,
                     pulseLocked: pulse && note.isLocked,
                     onTap: () => _openNote(context, note),
                   );
+                  // Hide the email fragment on the "Zakupy" note —
+                  // long-press on the row recovers it.
+                  if (note.id == 'shopping') {
+                    return FragmentHotspot(
+                      fragmentId: 'frag_intro',
+                      child: tile,
+                    );
+                  }
+                  return tile;
                 },
               ),
             ),

@@ -12,7 +12,9 @@ class MessagesListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final messages = context.watch<MessagesState>();
-    final threads = messages.threads;
+    // Hide threads that have no messages yet — keeps the inbox clean 
+    // until someone writes.
+    final threads = messages.threads.where((t) => t.messages.isNotEmpty).toList();
 
     return Scaffold(
       backgroundColor: Colors.black,

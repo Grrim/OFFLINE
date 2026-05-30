@@ -1,0 +1,308 @@
+{
+  "threads": {
+    "mama": {
+      "contactName": "Mama",
+      "messages": [
+        "Pamiętasz, żeby wziąć leki na ciśnienie?",
+        "Mruczek znowu rozdrapał kanapę. Ten kot mnie wykończy.",
+        "Kochanie, Pani Halinka pytała o ciebie. Zadzwoń do niej jak będziesz miała chwilę.",
+        "Słyszałaś, że znowu coś robią w tym lesie za miastem? Babcia mówi, że hałasy w nocy. Ciężkie maszyny.",
+        "Czemu nie odpisujesz? Wszystko w porządku?",
+        "Gdzie jesteś?",
+        "Odezwij się do mnie!",
+        "Dzwoniłam do twojego biura. Powiedzieli, że nie pojawiłaś się od piątku. Co się dzieje?"
+      ],
+      "nodes": {
+        "respond": {
+          "choices": [
+            { "text": "Mamo, to nie N. Znalazłem jej telefon. Ona zniknęła.", "nextNodeId": "shock" },
+            { "text": "Wszystko OK, nie martw się. Odezwę się później.", "nextNodeId": "lie" }
+          ]
+        },
+        "shock": {
+          "npcMessages": [
+            "Co?? Jak to zniknęła?! Kto to pisze?!",
+            "Boże... Dzwonię na policję. Natychmiast."
+          ],
+          "choices": [
+            { "text": "NIE dzwoń na policję! Policja jest w to zamieszana!", "nextNodeId": "warning" }
+          ]
+        },
+        "warning": {
+          "npcMessages": [
+            "Co ty mówisz... Jak to zamieszana...",
+            "Dobrze. Nie dzwonię. Ale powiedz mi co się dzieje.",
+            "Błagam, powiedz mi że moja córka żyje."
+          ],
+          "choices": [
+            { "text": "Robię wszystko co mogę żeby ją znaleźć. Zaufaj mi.", "nextNodeId": "trust" }
+          ]
+        },
+        "trust": {
+          "npcMessages": [
+            "Dobrze... Dobrze. Ufam ci.",
+            "Proszę, bądź ostrożny. Kimkolwiek jesteś."
+          ]
+        },
+        "lie": {
+          "npcMessages": [
+            "Kochanie? Czemu piszesz tak dziwnie?",
+            "To nie brzmi jak ty. Co się dzieje?"
+          ]
+        }
+      },
+      "systemMessages": {
+        "stranger_danger": "Kochanie, przed domem stoi jakiś dziwny samochód. Ktoś kręci się przy oknach. Gdzie jesteś?! Odpowiedz mi!"
+      }
+    },
+    "nieznany": {
+      "contactName": "Nieznany",
+      "messages": [
+        "Widzę, że udało ci się odblokować jej telefon. Nie mamy wiele czasu. Oni już wiedzą, że go masz."
+      ],
+      "nodes": {
+        "intro": {
+          "choices": [
+            { "text": "Kim jesteś? Gdzie jest właścicielka tego telefonu?", "nextNodeId": "branch_a" },
+            { "text": "To jakiś żart. Idę z tym na policję.", "nextNodeId": "branch_b" }
+          ]
+        },
+        "branch_a": {
+          "npcMessages": [
+            "Przyjacielem. A policja to ostatnie miejsce, do którego powinieneś teraz iść, jeśli chcesz, żeby przeżyła."
+          ],
+          "autoNextNodeId": "convergence"
+        },
+        "branch_b": {
+          "npcMessages": [
+            "Policja? Myślisz, że dlaczego musiała uciekać? Nie bądź naiwny."
+          ],
+          "autoNextNodeId": "convergence"
+        },
+        "convergence": {
+          "npcMessages": [
+            "Musisz mi zaufać. Wejdź w Galerię zdjęć. Znajdź fotografię zrobioną zeszłej nocy. Musisz odszyfrować ukrytą na niej wiadomość, zanim oni wyłączą ten telefon. Pospiesz się."
+          ],
+          "autoNextNodeId": "hint_files"
+        },
+        "hint_files": {
+          "npcMessages": [
+            "Jeszcze jedno — w Plikach są dokumenty, które zebrała. Faktury, nagrania, lista koperty. Przeczytaj je. Zrozumiesz, z kim masz do czynienia.",
+            "I nie próbuj dzwonić na policję z tego telefonu. Nie masz zasięgu. Zresztą... policja to część problemu.",
+            "Teraz idź do Zdjęć. Znajdź to ciemne zdjęcie z lasu — zrobione wczoraj w nocy. Kliknij na nie i naciśnij przycisk Info na dole. Tam jest ukryty kod."
+          ]
+        }
+      },
+      "systemMessages": {
+        "sheriff_nudge": "Szeryf się odezwał. Masz kilka minut zanim przyjedzie. NIE odpowiadaj mu od razu — najpierw przeczytaj Pliki i Pocztę. Im więcej wiesz, tym lepszą odpowiedź wybierzesz.",
+        "plan_b_nudge": "Jeszcze jedno — jest druga zamknięta notatka, \"Plan B\". Kod do niej znajdziesz w transkrypcji nagrania w Plikach. Szukaj godziny. To ważne.",
+        "journalist_nudge": "Dobry wybór. Anita się odezwie — odpowiedz jej. Wyślij wszystko co masz. To jedyna szansa.",
+        "clue_nudge": "Dobra robota. Widzisz ten kod w komentarzu? 7309. Wejdź w Notatki — jest tam zablokowana notatka. Wpisz ten kod. Przeczytaj co N. zostawiła.",
+        "files_nudge": "Widzisz te faktury? 14 tysięcy co miesiąc. \"Konsulting\". Teraz rozumiesz dlaczego policja nie szuka N.",
+        "browser_nudge": "Tak. To było jej tajne archiwum. Skrytka, prokurator, forum o stalkingu — to wszystko jej research. Zapisz sobie te adresy. Mogą się przydać.",
+        "recorder_nudge": "Genialne. Tak — to byli oni: Anita w pierwszym, Komendant K. w drugim, Tomasz B. (wspólnik HB) w trzecim. Teraz Anita ma już własną twarz na taśmie. To jest złoto.",
+        "maps_nudge": "Mam jej trasę. Dom → biuro → kawiarnia z Anitą o 14 → parking o 21 → Las Kabacki C-2 o 23:45. Dokładnie tam, gdzie kopali. Ona nie zniknęła sama — szła sprawdzać sektor.",
+        "email_nudge": "Złożyłeś jej ostatnią wiadomość. Tej nie zdążyła wysłać do Anity. Wszystko jest tam: spotkanie 14:00, sektor C-2, hasło do Signala. Anita sama tego nie zna — musisz przekazać."
+      }
+    },
+    "dziennikarka": {
+      "contactName": "Anita Z. (Gazeta)",
+      "messages": [
+        "Cześć N., mam materiał gotowy do publikacji. Brakuje mi tylko twojego zielonego światła i tych dokumentów co mówiłaś.",
+        "Redaktor naczelny się waha — boi się procesu od Helion-Bud. Daj mi cokolwiek czarno na białym i puszczamy to w sobotę.",
+        "Jesteś?",
+        "N., zaczynam się martwić. Odezwij się jak tylko możesz."
+      ]
+    },
+    "szeryf": {
+      "contactName": "Szeryf",
+      "nodes": {
+        "opener": {
+          "choices": [
+            { "text": "Nie wiem o czym mówisz, znalazłem ten telefon w parku.", "nextNodeId": "choice_dumb", "trustDeltas": {"mama": -10, "anita": -15} },
+            { "text": "Wiem wszystko o Helion-Budzie. Zdjęcia i notatki są już zabezpieczone.", "nextNodeId": "choice_defy", "trustDeltas": {"anita": 5, "tomasz": 10} },
+            { "text": "Już za późno. Wszystko jest w drodze do redakcji.", "nextNodeId": "choice_truth", "requiresMinEvidence": 50, "lockedReasonKey": "lockedReasonNeedEvidence", "trustDeltas": {"anita": 20, "tomasz": 5} },
+            { "text": "Mogę zniknąć. Ile to dla was warte?", "nextNodeId": "choice_corrupt", "requiresMinEvidence": 50, "lockedReasonKey": "lockedReasonNeedEvidence", "trustDeltas": {"mama": -30, "anita": -50, "tomasz": -50, "nieznany": -40} },
+            { "text": "Ile razy mieliśmy już tę samą rozmowę?", "nextNodeId": "choice_cycle", "requiresFlag": "meta.cycle_available", "hidden": true }
+          ]
+        },
+        "choice_dumb": {
+          "npcMessages": ["Dobry żart. Mój człowiek już po ciebie jedzie. Nie ruszaj się."],
+          "triggersEndingId": "caught"
+        },
+        "choice_defy": {
+          "npcMessages": ["Myślisz, że jesteś sprytny? Rozejrzyj się za siebie."],
+          "triggersEndingId": "escape"
+        },
+        "choice_truth": {
+          "npcMessages": ["Blefujesz. Nie zdążyłeś."],
+          "triggersJournalistHook": true
+        },
+        "choice_corrupt": {
+          "npcMessages": [
+            "Aaa. Mądry chłopak.",
+            "50 tysięcy. Gotówką. Jutro o 6:00 pod dworcem.",
+            "I lepiej żebyś nie miał drugiej kopii. Bo wtedy umrzesz."
+          ],
+          "triggersEndingId": "corruption"
+        },
+        "choice_cycle": {
+          "npcMessages": ["...", "Co?", "Co ty mówisz?", "...", "Skąd wiesz?", "Niezależnie. Niech cię widzę."],
+          "triggersEndingId": "cycle"
+        }
+      },
+      "systemMessages": {
+        "initial_warning": "Wiem, że grzebiesz w tym telefonie. Odłóż go, zanim sam po niego przyjadę.",
+        "final_warning": "Minuta. Albo odpowiadasz, albo jadę."
+      }
+    },
+    "stalker": {
+      "contactName": "Stalker",
+      "systemMessages": {
+        "i_see_you": "Widzę cię.",
+        "night": "Ciemno u ciebie, prawda?",
+        "evening": "Wieczór. Zamknij zasłony.",
+        "day": "Dzień. Myślisz że jesteś bezpieczny?",
+        "loc_prefix": "Wiem gdzie jesteś. Nie ruszaj się.",
+        "loc_city": "${city}. ${district}. Nie ruszaj się.",
+        "warning_phone": "Nie powinieneś był tego włączać. Ten telefon nie jest twój.",
+        "last_warning": "Jadę po ciebie. Odłóż telefon. Ostatnie ostrzeżenie.",
+        "last_warning_city": "Jadę do ${city}. Odłóż telefon. Ostatnie ostrzeżenie."
+      }
+    },
+    "prokurator": {
+      "contactName": "Prokurator R.",
+      "systemMessages": {
+        "decoded": "Mam Pana materiały. Wszystko zaszyfrowane. Wracajmy do rozmowy — czeka na Pana decyzja."
+      }
+    }
+  },
+  "intro": [
+    "23:52",
+    "",
+    "Wracam do domu.",
+    "Ciemno. Zimno.",
+    "",
+    "Coś świeci na chodniku.",
+    "",
+    "Telefon.",
+    "Ekran pęknięty. Jeszcze ciepły.",
+    "",
+    "Wibruje.",
+    "",
+    "Ktoś pisze.",
+    "",
+    "",
+    "Podnoszę go."
+  ],
+  "intro_skip": "dotknij aby pominąć",
+  "recap": {
+    "title_sub": "Wracasz po przerwie",
+    "title_main": "Co się dotąd wydarzyło",
+    "continue": "Kontynuuj",
+    "chapter1": "Trwa pierwszy rozdział — wieczór, krótko po zniknięciu N.",
+    "chapter2": "Jesteś w drugim rozdziale — świt po nocy zaginięcia N.",
+    "chapter3": "Trwa rozdział 3 — prokurator R. czeka na decyzję.",
+    "notes_secret": "Odblokowałeś tajną notatkę N. (PIN 7309) i wiesz o korupcji w komendzie powiatowej.",
+    "notes_plan_b": "Odblokowałeś też notatkę \"Plan B\" (PIN 1422) — masz kontakt do Tomasza i hasło uwierzytelniające.",
+    "files_progress": "Przeczytałeś {count} z {total} dokumentów w aplikacji Pliki.",
+    "photos_clues": "Sprawdziłeś {count} zdjęć z metadanymi (Info).",
+    "evidence_score": "Dowody: {score} pkt zebranych.",
+    "browser_private": "Odblokowałeś tryb prywatny przeglądarki.",
+    "puzzle_email": "Złożyłeś usuniętą wiadomość N. z pięciu fragmentów.",
+    "puzzle_voices": "Dopasowałeś głosy z nagrań do osób z kontaktów.",
+    "puzzle_route": "Zrekonstruowałeś trasę N. z ostatniego dnia.",
+    "puzzle_signal": "Odszyfrowałeś hasło Signala — kanał z prokuratorem otwarty.",
+    "trust_tomasz_high": "Tomasz ci zaufał — czeka na sygnał.",
+    "trust_tomasz_low": "Tomasz cię odrzucił.",
+    "trust_anita_high": "Anita Z. wierzy w to co masz — gotowa do publikacji.",
+    "trust_mama_low": "Mama jest na ciebie zła. Nie wierzy w twoje wyjaśnienia.",
+    "empty": "Niewiele pamiętasz — rozgrywka dopiero się zaczyna."
+  },
+  "contacts": {
+    "mama": "❤️",
+    "anita": "Signal! Nie SMS. Dziennikarka śledcza, Gazeta Wyborcza lokalna.",
+    "tomasz": "Tomasz. Nr 14, 2 piętro. Były pracownik HB. Hasło: \"drzewo, które padło na dachu\". UFAM MU.",
+    "praca": "Agencja Medialna Horyzont. Recepcja.",
+    "kasia": "Hasło do Wi-Fi w biurze — zapytać ją.",
+    "cafe": "Rezerwacja stolika. Wi-Fi: gosc.relaks",
+    "wet": "Szczepienie — czerwiec!",
+    "tata": "",
+    "szeryf": "Komendant K. NIE ODBIERAĆ. NIE ODDZWANIAĆ. Wie kim jestem. Wie co mam."
+  },
+  "calendar": {
+    "mon": { "title": "Praca — biuro", "subtitle": "Normalny dzień", "detail": "Nic podejrzanego. Zwykłe poniedziałkowe zebranie." },
+    "tue": { "title": "Zakupy", "subtitle": "mleko, pomidory, karma dla Mruczka", "detail": "Pamiętać o żwirku następnym razem." },
+    "wed": { "title": "Selfie — Plac Zbawiciela", "subtitle": "Spotkanie z przyjaciółką?", "detail": "Miło było na chwilę zapomnieć o wszystkim." },
+    "thu": { "title": "⚠️ Samochód pod domem", "subtitle": "Zgaszone światła, 2h pod oknem", "detail": "Ciemny sedan. Nie widziałam kierowcy. Stoją tam od 22:00. Boję się." },
+    "fri_work": { "title": "Nie pojawiła się w pracy", "subtitle": "Biuro: \"nie widzieliśmy jej od rana\"", "detail": "Telefon wyłączony." },
+    "fri_meeting": { "title": "Spotkanie: Anita Z. (Gazeta)", "subtitle": "Kawiarnia Relaks — NIEOBECNA", "detail": "Anita czekała 2 godziny." },
+    "sat_photo": { "title": "📷 Zdjęcie — Las Kabacki", "subtitle": "Ostatnie zdjęcie w galerii", "detail": "Sektor C-2." },
+    "sat_note": { "title": "📝 Notatka: \"W RAZIE ZNIKNIĘCIA\"", "subtitle": "Ostatnia aktywność na telefonie", "detail": "Zapisałam wszystko." }
+  },
+  "meta": {
+    "hints": {
+      "chapter3_signal": "Prokurator R. czeka na potwierdzenie. Otwórz Signal na ekranie głównym — hasło to słowo z notatek N. plus godzina pierwszego nagrania.",
+      "photos_clue": "Wejdź w Zdjęcia. Szukaj ciemnego zdjęcia z lasu — kliknij Info na dole.",
+      "notes_lock": "Masz kod 7309 z metadanych zdjęcia. Otwórz Notatki — jest tam zablokowana notatka.",
+      "files_progress": "W Plikach są dokumenty, które N. zebrała. Przeczytaj je wszystkie — to twoje twarde dowody.",
+      "browser_private": "Karty prywatne w przeglądarce są zaszyfrowane. Hasło masz w notatkach: imię kota + rok urodzenia.",
+      "email_fragments": "W Poczcie jest pusty Kosz. Fragmenty wiadomości N. są rozsiane po innych aplikacjach. Przytrzymaj palec na podejrzanych elementach.",
+      "recorder_voices": "W Dyktafonie nagrania mają anonimowe głosy. Kojarz kontekst transkrypcji z osobami z Kontaktów.",
+      "maps_route": "W Mapach jest opcja \"Zrekonstruuj ostatni dzień\". Ułóż lokacje N. po godzinach z Kalendarza.",
+      "generic_ready": "Masz teraz wszystko. Odezwij się do Anity albo Tomasza."
+    },
+    "notifications": {
+      "ghost_title": "Lokalizacja",
+      "ghost_body": "Ktoś sprawdził Twoją lokalizację",
+      "wifi_title": "Połączono z siecią",
+      "wifi_body": "HB_Guest_5G — połączenie nieszyfrowane",
+      "creepy_camera_title": "Aparat",
+      "creepy_camera_body": "Aplikacja \"Nieznana\" uzyskała dostęp do aparatu",
+      "creepy_mic_title": "Prywatność",
+      "creepy_mic_body": "Mikrofon jest używany w tle",
+      "creepy_unlock_title": "Bezpieczeństwo",
+      "creepy_unlock_body": "Nieudana próba zdalnego odblokowania urządzenia",
+      "version_copied": "Wersja skopiowana",
+      "achievement_app_name": "Osiągnięcie"
+    },
+    "ngp": {
+      "opener_prefix_1": "Wróciłeś. ",
+      "opener_prefix_multi": "Znowu. To już {count}-ty raz. ",
+      "caught": "Ostatnio dali się ciebie złapać. Tym razem nie kłam Szeryfowi za szybko.",
+      "escape": "Ostatnio uciekłeś z dowodami w kieszeni. N. wciąż jest gdzie tam. Może tym razem nie zostawimy jej tam samej?",
+      "truth": "Anita publikowała w sobotę. Dobrze. Ale N. nadal nie wróciła. Spróbuj inaczej.",
+      "dawn": "Już raz znalazłeś N. żywą. Jak to się skończyło? Jak myślisz?",
+      "corruption": "Wziąłeś kopertę. Każdy z nas ma swoją cenę. Może tym razem spróbujesz nie mieć?",
+      "solitude": "Ostatnio nikomu nie zaufałeś. Wiesz że Mama do ciebie pisała? Otwórz jej wiadomości. Tym razem.",
+      "cycle": "Wróciłeś nawet po tym, jak ci wszystko wytłumaczyłem.\nAlbo jesteś uparty, albo nie pamiętasz.\nAlbo jedno i drugie.",
+      "default": "Telefon znowu w twoich rękach. Pamiętasz coś z poprzedniego razu? Niezależnie — zaczynamy od nowa.",
+      "meta_closing": "Wiem, jak to brzmi. Po prostu… zrób to lepiej tym razem.",
+      "cycle_hint_1": "Słuchaj. Zauważyłeś, że za każdym razem to ten sam telefon? Ten sam piątek wieczorem? Ja tak.",
+      "cycle_hint_2": "Jeśli kiedyś się zatrzymasz i zapytasz Szeryfa wprost — może nas obu stąd wypuści. Spróbuj. Następnym razem, gdy do ciebie napisze, dostaniesz nową opcję."
+    },
+    "prosecutor_bridge": {
+      "anita": "Anita: Anita zadzwoniła do prokuratora wcześniej niż planowała. Powiedział że potrzebuje rozmowy z kimś, kto ma materiały. Z Tobą.",
+      "tomasz": "Tomasz: Komendant został zatrzymany. Ale śledczy chcą rozmawiać z Tobą — bezpośrednio. Daję Ci numer prokuratora R."
+    }
+  },
+  "about": {
+    "title": "O grze",
+    "version": "Wersja {version}",
+    "privacy_policy": "Polityka prywatności",
+    "privacy_body": "OFFLINE to gra single-player. Nie zbieramy żadnych danych osobowych.\n\n• Postęp i ustawienia zapisywane są wyłącznie lokalnie na Twoim urządzeniu.\n• Raporty błędów są opt-in i zawierają tylko stack trace + wersję — bez identyfikatorów.",
+    "privacy_link": "Pełna polityka prywatności",
+    "age_rating": "Wiek: 13+",
+    "age_body": "Tematyka: zaginięcie, korupcja, stalking, przemoc psychiczna. Brak fizycznej przemocy, treści seksualnych, treści dotyczących nadużyć wobec dzieci.",
+    "open_source": "Open source",
+    "open_source_body": "OFFLINE używa następujących bibliotek open-source:\n\n• Flutter (BSD-3-Clause)\n• provider (MIT)\n• shared_preferences (BSD-3-Clause)\n• audioplayers (MIT)\n• google_fonts (Apache-2.0)\n• fake_async (BSD-3-Clause)\n\nPełne licencje są dostępne w \"Licencje open-source\".",
+    "audio_attribution": "Atrybucje audio",
+    "audio_body": "Dźwięki używane w grze pochodzą z freesound.org (pełny wykaz licencji w pliku assets/audio/README.md) lub są generowane proceduralnie na licencji MIT.",
+    "contact": "Kontakt",
+    "contact_body": "W sprawach technicznych i prywatności: grimssys@gmail.com\n\n© {year} GRIM ORIGIN STUDIO",
+    "licenses_button": "Licencje open-source",
+    "footer": "OFFLINE — Zaginiona",
+    "unknown_version": "Nieznana",
+    "link_error": "Nie można otworzyć linku"
+  }
+}

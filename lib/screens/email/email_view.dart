@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../state/email_state.dart';
 import '../../widgets/status_bar.dart';
 
 /// Email app — N.'s inbox. Mix of work emails, personal, spam,
@@ -42,10 +44,26 @@ class EmailView extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  _EmailTile(
+              child: Builder(
+                builder: (context) {
+                  final email = context.watch<EmailState>();
+                  return ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      // The reconstructed message appears at the very top
+                      // once all 5 fragments have been recovered.
+                      if (email.isFullyRecovered) ...[
+                        _RecoveredEmailTile(body: email.recoveredMessage!),
+                        const SizedBox(height: 4),
+                      ],
+                      // Trash / fragments progress card — visible from
+                      // the moment any fragment is found.
+                      if (email.recoveredCount > 0 &&
+                          !email.isFullyRecovered) ...[
+                        _TrashProgressCard(state: email),
+                        const SizedBox(height: 4),
+                      ],
+                      const _EmailTile(
                     sender: 'Anita Z.',
                     subject: 'RE: materiały — PILNE',
                     preview: 'N., potrzebuję tych skanów do piątku. Redaktor '
@@ -65,7 +83,7 @@ class EmailView extends StatelessWidget {
                         'Trzymaj się.\n'
                         'Anita',
                   ),
-                  _EmailTile(
+                  const _EmailTile(
                     sender: 'HR — Biuro',
                     subject: 'Nieobecność w pracy 16.05',
                     preview: 'Szanowna Pani, informujemy że Pani nieobecność '
@@ -83,7 +101,7 @@ class EmailView extends StatelessWidget {
                         'Dział Kadr\n'
                         'Agencja Medialna "Horyzont"',
                   ),
-                  _EmailTile(
+                  const _EmailTile(
                     sender: 'Stowarzyszenie Strażnicy Lasu',
                     subject: 'Potwierdzenie zgłoszenia #2026-0847',
                     preview: 'Dziękujemy za przesłanie dokumentacji. '
@@ -106,7 +124,7 @@ class EmailView extends StatelessWidget {
                         'Zespół Prawny\n'
                         'Stowarzyszenie Strażnicy Lasu',
                   ),
-                  _EmailTile(
+                  const _EmailTile(
                     sender: 'Netflix',
                     subject: 'Nowe odcinki czekają na Ciebie!',
                     preview: 'Twoja lista: "Dark", "Mindhunter", '
@@ -120,7 +138,7 @@ class EmailView extends StatelessWidget {
                         '• Making a Murderer — Część 3\n\n'
                         'Oglądaj teraz →',
                   ),
-                  _EmailTile(
+                  const _EmailTile(
                     sender: 'Mama',
                     subject: 'Przepis na szarlotkę babci',
                     preview: 'Kochanie, przesyłam ci ten przepis co '
@@ -142,7 +160,7 @@ class EmailView extends StatelessWidget {
                         'Buziaki,\n'
                         'Mama',
                   ),
-                  _EmailTile(
+                  const _EmailTile(
                     sender: 'Signal',
                     subject: 'Nowe urządzenie zalogowane',
                     preview: 'Twoje konto Signal zostało aktywowane na '
@@ -159,7 +177,7 @@ class EmailView extends StatelessWidget {
                         'i wyloguj wszystkie urządzenia.\n\n'
                         'Zespół Signal',
                   ),
-                  _EmailTile(
+                  const _EmailTile(
                     sender: 'Allegro',
                     subject: 'Twoja paczka została dostarczona',
                     preview: 'Zamówienie #ALG-9847221 — dyktafon cyfrowy '
@@ -173,7 +191,7 @@ class EmailView extends StatelessWidget {
                         'Data dostawy: 08.05.2026\n\n'
                         'Dziękujemy za zakupy na Allegro!',
                   ),
-                  _EmailTile(
+                  const _EmailTile(
                     sender: 'PKP Intercity',
                     subject: 'Potwierdzenie rezerwacji',
                     preview: 'Bilet: Warszawa Centralna → Kraków Główny, '
@@ -190,11 +208,137 @@ class EmailView extends StatelessWidget {
                         'Życzymy miłej podróży!\n'
                         'PKP Intercity',
                   ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RecoveredEmailTile extends StatelessWidget {
+  const _RecoveredEmailTile({required this.body});
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _EmailReaderScreen(
+            sender: 'N. (odzyskane)',
+            subject: 'WIADOMOŚĆ ODZYSKANA — fragmenty z Kosza',
+            time: 'Odzyskano przez Ciebie',
+            body: body,
+            isImportant: true,
+          ),
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFCC00).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: const Color(0xFFFFCC00).withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFCC00).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.markunread_mailbox,
+                  color: Color(0xFFFFCC00), size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'WIADOMOŚĆ ODZYSKANA',
+                    style: TextStyle(
+                      color: Color(0xFFFFCC00),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'N. — fragmenty z Kosza złożone w całość',
+                    style: TextStyle(
+                        color: Colors.white, fontSize: 14,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Stuknij, aby przeczytać.',
+                    style: TextStyle(
+                        color: Colors.white54, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrashProgressCard extends StatelessWidget {
+  const _TrashProgressCard({required this.state});
+  final EmailState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2C2C2E)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.restore_from_trash,
+              color: Color(0xFF0A84FF), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Kosz — fragmenty wiadomości',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${state.recoveredCount}/${state.totalFragments} '
+                  'odnalezionych. Szukaj fragmentów w innych aplikacjach.',
+                  style: const TextStyle(
+                      color: Colors.white54, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

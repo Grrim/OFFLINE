@@ -56,6 +56,7 @@ class _ChatViewState extends State<ChatView> {
 
     // Auto-scroll whenever the message count changes (new NPC line, new player line).
     final isTypingHere = messages.isTypingInThread(widget.threadId);
+    final isProcessing = messages.isProcessingChoice;
     final visibleCount = thread.messages.length + (isTypingHere ? 1 : 0);
     if (visibleCount != _lastSeenMessageCount) {
       // Play message received sound when a new NPC message appears.
@@ -70,9 +71,11 @@ class _ChatViewState extends State<ChatView> {
       _autoScroll();
     }
 
-    final choices = thread.isInteractive && thread.dialogueGraph != null && !isTypingHere
-        ? (thread.dialogueGraph![thread.currentNodeId]?.choices ?? const [])
-        : const <DialogueChoice>[];
+    final gated = thread.isInteractive &&
+            thread.dialogueGraph != null &&
+            !isTypingHere
+        ? messages.gatedChoices
+        : const <GatedChoice>[];
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -128,9 +131,10 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
             _ChoiceBar(
-              choices: choices,
+              choices: gated,
               isInteractive: thread.isInteractive,
               isTyping: isTypingHere,
+              isProcessing: isProcessing,
               onPick: (c) {
                 HapticFeedback.selectionClick();
                 messages.selectChoice(c);
@@ -365,12 +369,14 @@ class _ChoiceBar extends StatelessWidget {
     required this.choices,
     required this.isInteractive,
     required this.isTyping,
+    required this.isProcessing,
     required this.onPick,
   });
 
-  final List<DialogueChoice> choices;
+  final List<GatedChoice> choices;
   final bool isInteractive;
   final bool isTyping;
+  final bool isProcessing;
   final ValueChanged<DialogueChoice> onPick;
 
   @override
@@ -381,7 +387,7 @@ class _ChoiceBar extends StatelessWidget {
     }
 
     // Interactive but no current choices: either NPC is typing or end of branch.
-    if (choices.isEmpty) {
+    if (choices.isEmpty || isProcessing) {
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         color: Colors.black,
@@ -389,7 +395,7 @@ class _ChoiceBar extends StatelessWidget {
           height: 40,
           child: Center(
             child: Text(
-              isTyping ? 'Pisze...' : 'Koniec rozmowy',
+              (isTyping || isProcessing) ? 'Pisze...' : 'Koniec rozmowy',
               style: const TextStyle(color: Colors.white38, fontSize: 13),
             ),
           ),
@@ -408,8 +414,12 @@ class _ChoiceBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final c in choices) ...[
-            _ChoiceButton(label: c.text, onTap: () => onPick(c)),
+          for (final g in choices) ...[
+            _ChoiceButton(
+              label: g.choice.text,
+              available: g.isAvailable,
+              onTap: g.isAvailable ? () => onPick(g.choice) : null,
+            ),
             const SizedBox(height: 8),
           ],
         ],
@@ -419,29 +429,53 @@ class _ChoiceBar extends StatelessWidget {
 }
 
 class _ChoiceButton extends StatelessWidget {
-  const _ChoiceButton({required this.label, required this.onTap});
+  const _ChoiceButton({
+    required this.label,
+    required this.available,
+    required this.onTap,
+  });
 
   final String label;
-  final VoidCallback onTap;
+  final bool available;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final borderColor =
+        available ? const Color(0xFF0A84FF) : const Color(0xFF3A3A3C);
+    final textColor = available ? Colors.white : Colors.white38;
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: const BorderSide(color: Color(0xFF0A84FF), width: 1.2),
+          foregroundColor: textColor,
+          disabledForegroundColor: textColor,
+          side: BorderSide(color: borderColor, width: 1.2),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
           alignment: Alignment.centerLeft,
         ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 14, height: 1.3),
+        child: Row(
+          children: [
+            if (!available) ...[
+              const Icon(Icons.lock_outline,
+                  size: 14, color: Colors.white38),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.3,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

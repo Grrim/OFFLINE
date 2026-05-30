@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../state/chapter_state.dart';
 import '../state/files_state.dart';
 import '../state/messages_state.dart';
 import '../state/notes_state.dart';
 import '../state/photos_state.dart';
+import '../state/signal_puzzle_state.dart';
+import '../services/audio_service.dart';
+import '../l10n/gen/app_localizations.dart';
 import '../widgets/status_bar.dart';
+import '../widgets/phone_shell_events.dart';
 import 'browser/browser_view.dart';
 import 'calendar/calendar_view.dart';
 import 'contacts/contacts_view.dart';
@@ -18,6 +24,7 @@ import 'phone/phone_view.dart';
 import 'photos/photos_grid_view.dart';
 import 'recorder/recorder_view.dart';
 import 'settings/settings_view.dart';
+import 'signal_puzzle_screen.dart';
 
 /// Home screen / launcher with a 4-app grid.
 class HomeScreen extends StatelessWidget {
@@ -25,6 +32,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     // Watch unread badge count from the messages module.
     final messagesUnread =
         context.select<MessagesState, int>((s) => s.totalUnread);
@@ -45,9 +53,15 @@ class HomeScreen extends StatelessWidget {
     final filesUnread =
         context.select<FilesState, int>((s) => s.unreadCount);
 
+    // Chapter 3 unlocks the Signal app on the home grid.
+    final isChapter3 =
+        context.select<ChapterState, bool>((s) => s.isChapter3);
+    final signalDecoded =
+        context.select<SignalPuzzleState, bool>((s) => s.isDecoded);
+
     final apps = <_AppEntry>[
       _AppEntry(
-        label: 'Telefon',
+        label: l10n.appLabelPhone,
         icon: Icons.phone,
         color: const Color(0xFF34C759),
         onOpen: (ctx) => Navigator.of(ctx).push(
@@ -55,7 +69,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Wiadomości',
+        label: l10n.appLabelMessages,
         icon: Icons.chat_bubble,
         color: const Color(0xFF34C759),
         badge: messagesUnread,
@@ -64,7 +78,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Poczta',
+        label: l10n.appLabelMail,
         icon: Icons.mail,
         color: const Color(0xFF0A84FF),
         onOpen: (ctx) => Navigator.of(ctx).push(
@@ -72,7 +86,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Kontakty',
+        label: l10n.appLabelContacts,
         icon: Icons.contacts,
         color: const Color(0xFF8E8E93),
         onOpen: (ctx) => Navigator.of(ctx).push(
@@ -80,7 +94,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Zdjęcia',
+        label: l10n.appLabelPhotos,
         icon: Icons.photo,
         color: const Color(0xFFFF9F0A),
         onOpen: (ctx) => Navigator.of(ctx).push(
@@ -88,7 +102,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Notatki',
+        label: l10n.appLabelNotes,
         icon: Icons.sticky_note_2,
         color: const Color(0xFFFFD60A),
         iconColor: Colors.black87,
@@ -98,7 +112,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Pliki',
+        label: l10n.appLabelFiles,
         icon: Icons.folder,
         color: hasCompletedIntro
             ? const Color(0xFF0A84FF)
@@ -108,10 +122,10 @@ class HomeScreen extends StatelessWidget {
             ? (ctx) => Navigator.of(ctx).push(
                   MaterialPageRoute(builder: (_) => const FilesView()),
                 )
-            : (ctx) => _showLocked(ctx, 'Pliki', 'Najpierw sprawdź Wiadomości'),
+            : (ctx) => _showLocked(ctx, l10n.appLabelFiles, l10n.commonNoSignal),
       ),
       _AppEntry(
-        label: 'Safari',
+        label: l10n.appLabelSafari,
         icon: Icons.public,
         color: cluePhotoSeen
             ? const Color(0xFF1E90FF)
@@ -120,10 +134,10 @@ class HomeScreen extends StatelessWidget {
             ? (ctx) => Navigator.of(ctx).push(
                   MaterialPageRoute(builder: (_) => const BrowserView()),
                 )
-            : (ctx) => _showLocked(ctx, 'Safari', 'Historia pusta — najpierw sprawdź Zdjęcia'),
+            : (ctx) => _showLocked(ctx, l10n.appLabelSafari, l10n.commonNoSignal),
       ),
       _AppEntry(
-        label: 'Kalendarz',
+        label: l10n.appLabelCalendar,
         icon: Icons.calendar_month,
         color: const Color(0xFFFF453A),
         onOpen: (ctx) => Navigator.of(ctx).push(
@@ -131,7 +145,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Dyktafon',
+        label: l10n.appLabelRecorder,
         icon: Icons.mic,
         color: const Color(0xFFFF453A),
         onOpen: (ctx) => Navigator.of(ctx).push(
@@ -139,7 +153,7 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Mapy',
+        label: l10n.appLabelMaps,
         icon: Icons.map,
         color: const Color(0xFF34C759),
         onOpen: (ctx) => Navigator.of(ctx).push(
@@ -147,13 +161,25 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       _AppEntry(
-        label: 'Ustawienia',
+        label: l10n.appLabelSettings,
         icon: Icons.settings,
         color: const Color(0xFF8E8E93),
         onOpen: (ctx) => Navigator.of(ctx).push(
           MaterialPageRoute(builder: (_) => const SettingsView()),
         ),
       ),
+      // Signal — Chapter 3 only. Visible after the prosecutor thread
+      // opens; the puzzle state controls "decoded vs locked" labelling.
+      if (isChapter3)
+        _AppEntry(
+          label: l10n.appLabelSignal,
+          icon: Icons.lock_outlined,
+          color: const Color(0xFF3A76F0),
+          badge: signalDecoded ? 0 : 1,
+          onOpen: (ctx) => Navigator.of(ctx).push(
+            MaterialPageRoute(builder: (_) => const SignalPuzzleScreen()),
+          ),
+        ),
     ];
 
     return Scaffold(
@@ -179,10 +205,10 @@ class HomeScreen extends StatelessWidget {
           SafeArea(
             child: Column(
               children: [
-                Row(
+                const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Expanded(child: StatusBar()),
+                    Expanded(child: StatusBar()),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -199,6 +225,7 @@ class HomeScreen extends StatelessWidget {
                           _AppIcon(
                             entry: app,
                             onTap: () {
+                              AudioService.instance.playSfx(GameSfx.uiClick);
                               if (app.onOpen != null) {
                                 app.onOpen!(context);
                               } else {
@@ -210,16 +237,8 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Home indicator bar, like modern phones.
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8, top: 4),
-                  width: 130,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
+                // Global indicator is now in PhoneShell
+                const SizedBox(height: 16),
               ],
             ),
           ),
@@ -229,18 +248,26 @@ class HomeScreen extends StatelessWidget {
   }
 
   void _showComingSoon(BuildContext context, String label) {
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('$label - wkrótce'),
+          content: Text('$label - ${l10n.commonComingSoon}'),
           duration: const Duration(milliseconds: 900),
           behavior: SnackBarBehavior.floating,
         ),
       );
   }
 
+  /// Open the pause overlay via the shell-level dispatcher.
+  Future<void> _showPauseOverlay(BuildContext context) async {
+    HapticFeedback.heavyImpact();
+    PhoneShellEvents.dispatchPause(context);
+  }
+
   void _showLocked(BuildContext context, String label, String reason) {
+    AudioService.instance.playSfx(GameSfx.errorBeep);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(

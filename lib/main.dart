@@ -4,53 +4,97 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'package:sentry_flutter/sentry_flutter.dart';
+
 import 'screens/boot_screen.dart';
+import 'screens/content_warning_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/intro_screen.dart';
 import 'screens/lock_screen.dart';
 import 'screens/messages/chat_view.dart';
+import 'screens/new_game_plus_choice_screen.dart';
+import 'l10n/gen/app_localizations.dart';
 import 'services/audio_service.dart';
+import 'services/iap_service.dart';
+import 'services/l10n_service.dart';
 import 'services/location_service.dart';
 import 'services/persistence_service.dart';
+import 'state/achievements_state.dart';
 import 'state/browser_state.dart';
 import 'state/chapter_state.dart';
+import 'state/email_state.dart';
 import 'state/ending_state.dart';
+import 'state/evidence_mapping.dart';
+import 'state/evidence_state.dart';
 import 'state/files_state.dart';
+import 'state/flags_state.dart';
+import 'state/maps_state.dart';
 import 'state/messages_state.dart';
+import 'state/new_game_plus_state.dart';
 import 'state/notes_state.dart';
 import 'state/notifications_state.dart';
 import 'state/phone_state.dart';
 import 'state/photos_state.dart';
+import 'state/recorder_state.dart';
+import 'state/settings_state.dart';
+import 'state/signal_puzzle_state.dart';
+import 'state/trust_state.dart';
 import 'theme/app_theme.dart';
 import 'widgets/chapter_transition_overlay.dart';
 import 'widgets/ending_overlay.dart';
-import 'widgets/glitch_overlay.dart';
+import 'widgets/incoming_call_overlay.dart';
 import 'widgets/notification_banner.dart';
-import 'widgets/scare_overlay.dart';
+import 'widgets/pause_overlay.dart';
+import 'widgets/phone_shell_events.dart';
+import 'widgets/welcome_back_overlay.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 1. Essential: Load persistence so we know the settings (telemetry, locale).
   await PersistenceService.init();
-  // Delay location fetch — don't interrupt boot with permission dialog.
-  Future.delayed(const Duration(seconds: 30), () {
-    LocationService.instance.tryGetLocation();
-  });
+
+  // 2. Essential: Initialize services.
+  // We await L10n and IAP to ensure the game state and UI labels are ready.
+  await L10nService.instance.init(
+    platformLocale: WidgetsBinding.instance.platformDispatcher.locale,
+  );
+  await IapService.instance.init();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  // Edge-to-edge mode — hides navigation bar but allows swipe gestures.
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.immersive,
-  );
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
     systemNavigationBarColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.light,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarContrastEnforced: false,
   ));
 
-  runApp(const ZaginionaApp());
+  // 3. Sentry Init (Opt-in).
+  final bool telemetryEnabled =
+      PersistenceService.instance.getBool('settings.telemetryOptIn');
+  
+  const String sentryDsn = 'https://e130f142512f5a60a7d9b9366601240c@o4507119131656192.ingest.de.sentry.io/4511481297764432';
+  
+  if (telemetryEnabled && sentryDsn.isNotEmpty) {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = sentryDsn;
+        options.tracesSampleRate = 1.0;
+        options.beforeSend = (event, hint) {
+          // Privacy: Strip potential PII if needed
+          return event;
+        };
+      },
+      appRunner: () => runApp(const ZaginionaApp()),
+    );
+  } else {
+    runApp(const ZaginionaApp());
+  }
 }
+
 
 class ZaginionaApp extends StatelessWidget {
   const ZaginionaApp({super.key});
@@ -59,22 +103,30 @@ class ZaginionaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = PersistenceService.instance;
 
-    // Provider tree:
-    // - All independent notifiers receive the persistence service.
-    // - MessagesState depends on NotificationsState (banner pushes).
-    // - NotesState depends on MessagesState (Sheriff hook on first unlock).
-    // - EndingState is independent; the Sheriff hook reaches into it via a
-    //   callback installed by the phone shell.
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => SettingsState(persistence: p)),
         ChangeNotifierProvider(create: (_) => PhoneState(persistence: p)),
         ChangeNotifierProvider(create: (_) => PhotosState(persistence: p)),
         ChangeNotifierProvider(create: (_) => NotificationsState()),
         ChangeNotifierProvider(create: (_) => EndingState(persistence: p)),
-        ChangeNotifierProvider(create: (_) => AudioService.instance),
+        ChangeNotifierProvider.value(value: AudioService.instance),
+        ChangeNotifierProvider.value(value: IapService.instance),
         ChangeNotifierProvider(create: (_) => FilesState(persistence: p)),
         ChangeNotifierProvider(create: (_) => BrowserState(persistence: p)),
         ChangeNotifierProvider(create: (_) => ChapterState(persistence: p)),
+        ChangeNotifierProvider(create: (_) => TrustState(persistence: p)),
+        ChangeNotifierProvider(create: (_) => EvidenceState(persistence: p)),
+        ChangeNotifierProvider(create: (_) => FlagsState(persistence: p)),
+        ChangeNotifierProvider(create: (_) => EmailState(persistence: p)),
+        ChangeNotifierProvider(create: (_) => RecorderState(persistence: p)),
+        ChangeNotifierProvider(create: (_) => MapsState(persistence: p)),
+        ChangeNotifierProvider(
+            create: (_) => AchievementsState(persistence: p)),
+        ChangeNotifierProvider(
+            create: (_) => NewGamePlusState(persistence: p)),
+        ChangeNotifierProvider(
+            create: (_) => SignalPuzzleState(persistence: p)),
 
         ChangeNotifierProxyProvider<NotificationsState, MessagesState>(
           create: (_) => MessagesState(persistence: p),
@@ -92,7 +144,6 @@ class ZaginionaApp extends StatelessWidget {
                 _triggerSheriffHook(messages, fromColdLoad: fromColdLoad);
               }
               if (unlockedId == 'plan_b' && !fromColdLoad) {
-                // Plan B unlocked — activate the witness thread (Tomasz).
                 messages.triggerWitnessDialog();
               }
             };
@@ -100,77 +151,65 @@ class ZaginionaApp extends StatelessWidget {
           },
         ),
       ],
-      child: MaterialApp(
-        title: 'OFFLINE',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
-        home: const _PhoneShell(),
+      child: ListenableBuilder(
+        listenable: L10nService.instance,
+        builder: (context, _) {
+          return MaterialApp(
+            title: 'OFFLINE',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.dark,
+            locale: L10nService.instance.locale,
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            home: const _PhoneShell(),
+          );
+        },
       ),
     );
   }
 }
 
-/// Adds the Sheriff thread (idempotent), schedules the threat message,
-/// then chains a panic message from Mama 1 second after the Sheriff's
-/// banner lands - creating a double-threat moment.
-///
-/// Also starts a 5-minute countdown — if the player doesn't respond
-/// to the Sheriff in time, auto-triggers the CAUGHT ending.
+
 Timer? _sheriffCountdown;
+DateTime? _sheriffTargetTime;
 
 Future<void> _triggerSheriffHook(MessagesState messages,
     {required bool fromColdLoad}) async {
-  final sheriffGraph = <String, DialogueNode>{
-    'opener': const DialogueNode(
-      id: 'opener',
-      // No npc lines on this node; the threat line is delivered separately
-      // (either now via deliverNpcMessage or already in the transcript).
-      choices: [
-        DialogueChoice(
-          text:
-              'Nie wiem o czym mówisz, znalazłem ten telefon w parku.',
-          nextNodeId: 'choice_dumb',
-        ),
-        DialogueChoice(
-          text:
-              'Wiem wszystko o Helion-Budzie. Zdjęcia i notatki są już zabezpieczone.',
-          nextNodeId: 'choice_defy',
-        ),
-        DialogueChoice(
-          text:
-              'Już za późno. Wszystko jest w drodze do redakcji.',
-          nextNodeId: 'choice_truth',
-        ),
-      ],
-    ),
-    'choice_dumb': const DialogueNode(
-      id: 'choice_dumb',
-      npcMessages: [
-        'Dobry żart. Mój człowiek już po ciebie jedzie. Nie ruszaj się.',
-      ],
-      triggersEndingId: 'caught',
-    ),
-    'choice_defy': const DialogueNode(
-      id: 'choice_defy',
-      npcMessages: [
-        'Myślisz, że jesteś sprytny? Rozejrzyj się za siebie.',
-      ],
-      triggersEndingId: 'escape',
-    ),
-    'choice_truth': const DialogueNode(
-      id: 'choice_truth',
-      npcMessages: [
-        'Blefujesz. Nie zdążyłeś.',
-      ],
-      // No ending here — the player must now actually deliver the
-      // evidence to the journalist via her thread.
-      triggersJournalistHook: true,
-    ),
-  };
+  final l10n = L10nService.instance.dialogues;
+  final sheriffData = l10n['threads']?['szeryf'] ?? {};
+  final sheriffNodes = sheriffData['nodes'] as Map<String, dynamic>? ?? {};
+
+  final sheriffGraph = <String, DialogueNode>{};
+  sheriffNodes.forEach((id, nodeData) {
+    final npcMsgs = (nodeData['npcMessages'] as List? ?? []).cast<String>();
+    final choicesData = (nodeData['choices'] as List? ?? []);
+    final choices = choicesData.map((c) {
+      return DialogueChoice(
+        text: c['text'] as String,
+        nextNodeId: c['nextNodeId'] as String,
+        trustDeltas: (c['trustDeltas'] as Map? ?? {}).cast<String, int>(),
+        requiresMinTrust:
+            (c['requiresMinTrust'] as Map? ?? {}).cast<String, int>(),
+        requiresMinEvidence: c['requiresMinEvidence'] as int?,
+        requiresFlag: c['requiresFlag'] as String?,
+        hidden: c['hidden'] as bool? ?? false,
+        lockedReasonKey: c['lockedReasonKey'] as String?,
+      );
+    }).toList();
+
+    sheriffGraph[id] = DialogueNode(
+      id: id,
+      npcMessages: npcMsgs,
+      choices: choices,
+      triggersEndingId: nodeData['triggersEndingId'] as String?,
+      triggersJournalistHook:
+          nodeData['triggersJournalistHook'] as bool? ?? false,
+    );
+  });
 
   final sheriffThread = ChatThread(
     id: 'szeryf',
-    contactName: 'Szeryf',
+    contactName: sheriffData['contactName'] ?? 'Sheriff',
     avatarColor: 0xFF6E0F0F,
     messages: [],
     dialogueGraph: sheriffGraph,
@@ -178,70 +217,76 @@ Future<void> _triggerSheriffHook(MessagesState messages,
     isInteractive: true,
   );
 
-  messages.ensureThread(sheriffThread);
-
   if (fromColdLoad) {
-    // Thread + transcript already exist in storage; nothing else to do.
+    messages.ensureThread(sheriffThread);
     return;
   }
 
-  // 1) Sheriff's threat lands after a dramatic pause (20s) — gives
-  // the player time to read the secret note before the confrontation.
+  final sessionId = messages.gameSessionId;
+  messages.ensureThread(ChatThread(
+    id: 'szeryf',
+    contactName: sheriffData['contactName'] ?? 'Sheriff',
+    avatarColor: 0xFF6E0F0F,
+    messages: [],
+    isInteractive: false,
+  ));
+
   await messages.deliverNpcMessage(
     'szeryf',
-    'Wiem, że grzebiesz w tym telefonie. Odłóż go, zanim sam po niego przyjadę.',
+    sheriffData['systemMessages']?['initial_warning'] ?? '...',
     delay: const Duration(seconds: 20),
   );
 
-  // Start countdown — 8 minutes to respond or auto-CAUGHT ending.
-  _sheriffCountdown = Timer(const Duration(minutes: 8), () {
-    if (_sheriffCountdown == null) return;
-    messages.onEndingTriggered?.call('caught');
+  if (messages.gameSessionId != sessionId) return;
+
+  messages.ensureThread(sheriffThread);
+
+  _sheriffCountdown?.cancel();
+  _sheriffTargetTime = DateTime.now().add(const Duration(minutes: 8));
+
+  _sheriffCountdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+    final target = _sheriffTargetTime;
+    if (target == null) {
+      timer.cancel();
+      return;
+    }
+    if (DateTime.now().isAfter(target)) {
+      timer.cancel();
+      _sheriffCountdown = null;
+      _sheriffTargetTime = null;
+      messages.onEndingTriggered?.call('caught');
+    }
   });
 
-  // Warning at 7 minutes (1 min before deadline).
-  Future.delayed(const Duration(minutes: 7), () {
+  messages.wait(const Duration(minutes: 7), sessionId: sessionId).then((_) {
     if (_sheriffCountdown == null) return;
+    if (messages.gameSessionId != sessionId) return;
     messages.deliverNpcMessage(
       'szeryf',
-      'Minuta. Albo odpowiadasz, albo jadę.',
+      sheriffData['systemMessages']?['final_warning'] ?? '...',
       delay: const Duration(seconds: 1),
     );
   });
 
-  // 2) 1s after the Sheriff banner slides down, Mama panics.
-  // Reuses the same delivery path: appends to her (non-interactive)
-  // thread, raises a banner, and the existing banner-tap handler deep
-  // links into her chat. Her unread badge bumps independently of
-  // Sheriff's so the player sees both threats waiting in the inbox.
   await messages.deliverNpcMessage(
     'mama',
-    'Kochanie, przed domem stoi jakiś dziwny samochód. Ktoś kręci się '
-        'przy oknach. Gdzie jesteś?! Odpowiedz mi!',
-    delay: const Duration(seconds: 1),
+    l10n['threads']?['mama']?['systemMessages']?['stranger_danger'] ?? '...',
+    delay: const Duration(seconds: 5),
   );
 
-  // 3) Nieznany warns the player — don't rush the Sheriff response.
   await messages.deliverNpcMessage(
     'nieznany',
-    'Szeryf się odezwał. Masz kilka minut zanim przyjedzie. '
-        'NIE odpowiadaj mu od razu — najpierw przeczytaj Pliki i '
-        'Pocztę. Im więcej wiesz, tym lepszą odpowiedź wybierzesz.',
-    delay: const Duration(seconds: 4),
+    l10n['threads']?['nieznany']?['systemMessages']?['sheriff_nudge'] ?? '...',
+    delay: const Duration(seconds: 12),
   );
 
-  // 4) Hint about the second locked note.
   await messages.deliverNpcMessage(
     'nieznany',
-    'Jeszcze jedno — jest druga zamknięta notatka, "Plan B". '
-        'Kod do niej znajdziesz w transkrypcji nagrania w Plikach. '
-        'Szukaj godziny. To ważne.',
-    delay: const Duration(seconds: 6),
+    l10n['threads']?['nieznany']?['systemMessages']?['plan_b_nudge'] ?? '...',
+    delay: const Duration(seconds: 25),
   );
 }
 
-/// Top-level swap between lock and home + the global notification banner +
-/// the ending overlay.
 class _PhoneShell extends StatefulWidget {
   const _PhoneShell();
 
@@ -255,32 +300,48 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
   bool _tensionActive = false;
   bool _introComplete = false;
   bool _bootComplete = false;
+  bool _isPaused = false;
+  bool _showWelcomeBack = false;
+  bool _ngpChoiceMade = false;
+  bool _incomingCall = false;
+  String? _callerName;
+  Timer? _hintTimer;
+  DateTime? _lastInteractionAt;
   Timer? _ringerTimer;
+  Timer? _solitudeWatchdog;
+  DateTime? _unlockedAt;
+  Duration _activeSessionDuration = Duration.zero;
+  DateTime? _lastResumeAt;
+
+  // For sheriff countdown pause handling
+  Duration? _sheriffTimeRemaining;
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _ringerTimer?.cancel();
+    _solitudeWatchdog?.cancel();
     _sheriffCountdown?.cancel();
+    _hintTimer?.cancel();
     super.dispose();
   }
 
-  /// Re-apply fullscreen when app resumes (Android resets UI mode).
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
   }
 
-  /// Cyclic "phone is ringing" vibration while the Sheriff has unread
-  /// messages and the player is not currently inside his chat. Mimics
-  /// the feeling of a phone buzzing on the table.
   void _updateRinger(bool active) {
     if (active && _ringerTimer == null) {
       _ringerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (!mounted) return;
+        if (!context.read<SettingsState>().haptics) return;
         HapticFeedback.heavyImpact();
         Future.delayed(const Duration(milliseconds: 200), () {
+          if (!mounted) return;
+          if (!context.read<SettingsState>().haptics) return;
           HapticFeedback.heavyImpact();
         });
       });
@@ -297,7 +358,12 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      // Banner taps -> open the chat.
+      final settings = context.read<SettingsState>();
+      AudioService.instance.setMuted(settings.audioMuted);
+      settings.addListener(() {
+        AudioService.instance.setMuted(settings.audioMuted);
+      });
+
       context.read<MessagesState>().setBannerTapHandler((threadId) {
         final nav = _navKey.currentState;
         if (nav == null) return;
@@ -310,464 +376,957 @@ class _PhoneShellState extends State<_PhoneShell> with WidgetsBindingObserver {
         });
       });
 
-      // Dialogue node ending triggers -> EndingState.
+      context.read<MessagesState>().attachGateEvaluator((choice) {
+        final trust = context.read<TrustState>();
+        final evidence = context.read<EvidenceState>();
+        final flags = context.read<FlagsState>();
+        final ngp = context.read<NewGamePlusState>();
+        for (final entry in choice.requiresMinTrust.entries) {
+          if (trust.get(entry.key) < entry.value) return false;
+        }
+        if (choice.requiresMinEvidence != null &&
+            evidence.score < choice.requiresMinEvidence!) {
+          return false;
+        }
+        final flag = choice.requiresFlag;
+        if (flag != null) {
+          if (flag == 'meta.cycle_available') {
+            if (!ngp.cycleAvailable) return false;
+          } else if (!flags.isSet(flag)) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      context.read<MessagesState>().attachTrustSink((deltas) {
+        if (!mounted) return;
+        context.read<TrustState>().apply(deltas);
+      });
+
       context.read<MessagesState>().onEndingTriggered = (endingId) {
         if (!mounted) return;
-        // Cancel sheriff countdown — player responded in time.
         _sheriffCountdown?.cancel();
         _sheriffCountdown = null;
+        _solitudeWatchdog?.cancel();
+        _solitudeWatchdog = null;
+        context.read<NotificationsState>().dismiss();
+
+        final ngp = context.read<NewGamePlusState>();
+        final chapter = context.read<ChapterState>();
+        final flags = context.read<FlagsState>();
+        final unlocksChapter3 = (endingId == 'truth' || endingId == 'dawn') &&
+            ngp.isPlusActive &&
+            chapter.current == Chapter.two &&
+            !flags.isSet('chapter.three_seen');
+        if (unlocksChapter3) {
+          flags.set('chapter.three_seen');
+          chapter.advanceToChapter3();
+          AudioService.instance.playSfx(GameSfx.unlockSuccess);
+          _scheduleProsecutorOpening(endingId);
+          return;
+        }
         AudioService.instance.playSfx(GameSfx.endingReveal);
         AudioService.instance.stopTension();
         context.read<EndingState>().trigger(endingId);
+        context.read<SettingsState>().setHasCompletedOnce(true);
+        context.read<NewGamePlusState>().recordEnding(endingId);
+        _evaluateEndingAchievements(endingId);
+        if (endingId == 'cycle') {
+          context.read<AchievementsState>().unlock('cycle');
+        }
       };
 
-      // Journalist hook — opens the TRUTH path.
       context.read<MessagesState>().onJournalistHookTriggered = () {
         if (!mounted) return;
+        final currentSettings = context.read<SettingsState>();
+        final sessionStart = currentSettings.currentRunStartedAt;
         _sheriffCountdown?.cancel();
         _sheriffCountdown = null;
         context.read<MessagesState>().triggerJournalistDialog();
-        // Nieznany confirms the player made the right choice.
-        Future.delayed(const Duration(seconds: 5), () {
+        
+        _delay(const Duration(seconds: 5), () {
           if (!mounted) return;
+          if (context.read<SettingsState>().currentRunStartedAt != sessionStart)
+            return;
+          final l10n = L10nService.instance.dialogues['threads']?['nieznany']
+                  ?['systemMessages'] ??
+              {};
           context.read<MessagesState>().deliverNpcMessage(
-            'nieznany',
-            'Dobry wybór. Anita się odezwie — odpowiedz jej. '
-                'Wyślij wszystko co masz. To jedyna szansa.',
-            delay: const Duration(seconds: 2),
-          );
+                'nieznany',
+                l10n['journalist_nudge'] ??
+                    'Dobry wybór. Anita się odezwie — odpowiedz jej. Wyślij wszystko co masz. To jedyna szansa.',
+                delay: const Duration(seconds: 2),
+              );
         });
       };
 
-      // Cold-load: if the secret note was already unlocked in a previous
-      // session, replay the hook (idempotent) so the Sheriff thread exists.
       final notes = context.read<NotesState>();
       if (notes.hasUnlockedSecret) {
         notes.replayHookForColdLoad();
       }
 
-      // Cold-load: if Plan B was already unlocked, ensure Tomasz thread exists.
       final planB = notes.noteById('plan_b');
       if (planB != null && !planB.isLocked) {
         context.read<MessagesState>().triggerWitnessDialog(fromColdLoad: true);
       }
 
-      // Reactive: Nieznany reacts when player inspects the clue photo.
       context.read<PhotosState>().onClueInspected = (photoId) {
         if (!mounted) return;
-        if (photoId == 'forest_night') {
-          context.read<MessagesState>().deliverNpcMessage(
-            'nieznany',
-            'Dobra robota. Widzisz ten kod w komentarzu? 7309. '
-                'Wejdź w Notatki — jest tam zablokowana notatka. '
-                'Wpisz ten kod. Przeczytaj co N. zostawiła.',
-            delay: const Duration(seconds: 3),
-          );
+        final evidenceId = EvidenceMapping.photoToEvidence[photoId];
+        if (evidenceId != null) {
+          context.read<EvidenceState>().collect(evidenceId);
         }
-      };
-
-      // Reminder: if player hasn't opened photos after 60s, nudge them.
-      Future.delayed(const Duration(seconds: 60), () {
-        if (!mounted) return;
-        if (!context.read<PhoneState>().isUnlocked) return;
-        final photos = context.read<PhotosState>();
-        if (!photos.hasInspected('forest_night')) {
+        if (photoId == 'forest_night') {
           final msgs = context.read<MessagesState>();
           if (msgs.hasCompletedIntro) {
+            final l10n = L10nService.instance.dialogues['threads']?['nieznany']
+                    ?['systemMessages'] ??
+                {};
             msgs.deliverNpcMessage(
               'nieznany',
-              'Pospiesz się. Wejdź w Zdjęcia — szukaj ciemnego zdjęcia '
-                  'z lasu. Kliknij na nie, potem przycisk Info (ⓘ) na dole.',
-              delay: const Duration(seconds: 2),
+              l10n['clue_nudge'] ??
+                  'Dobra robota. Widzisz ten kod w komentarzu? 7309. Wejdź w Notatki — jest tam zablokowana notatka. Wpisz ten kod. Przeczytaj co N. zostawiła.',
+              delay: const Duration(seconds: 3),
             );
           }
         }
-      });
-
-      // Reactive: Nieznany reacts when player opens first file.
-      context.read<FilesState>().onFirstFileOpened = () {
-        if (!mounted) return;
-        context.read<MessagesState>().deliverNpcMessage(
-          'nieznany',
-          'Widzisz te faktury? 14 tysięcy co miesiąc. "Konsulting". '
-              'Teraz rozumiesz dlaczego policja nie szuka N.',
-          delay: const Duration(seconds: 6),
-        );
       };
 
-      // Scheduled message from N. — arrives 3.5 min after unlock.
-      // Only if not already delivered in a previous session.
-      Future.delayed(const Duration(minutes: 3, seconds: 30), () {
-        if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+      context.read<FilesState>().onFirstFileOpened = () {
+        if (!mounted) return;
         final msgs = context.read<MessagesState>();
-        // Don't re-deliver if thread already has messages (cold-load).
-        if (msgs.threadById('n_scheduled') != null) return;
-        msgs.deliverNpcMessage(
-          'n_scheduled',
-          'Jeśli to czytasz, to znaczy że nie wróciłam. '
-              'Przepraszam. Nie chciałam żeby ktokolwiek w to wchodził. '
-              'Ale skoro już tu jesteś — proszę, nie odpuszczaj. '
-              'Oni liczą na to, że wszyscy się boją. Udowodnij im, '
-              'że się mylą.',
-          delay: const Duration(seconds: 2),
-        );
-      });
-
-      // Stalker "nice photo" — 3 min after unlock, pretends to use camera.
-      // Only on first playthrough (stalker thread doesn't exist yet).
-      Future.delayed(const Duration(minutes: 3), () {
-        if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-        final msgs = context.read<MessagesState>();
-        // Skip if stalker already has messages (cold-load / replay).
-        final stalkerThread = msgs.threadById('stalker');
-        if (stalkerThread != null && stalkerThread.messages.isNotEmpty) return;
-        context.read<NotificationsState>().push(AppNotification(
-          id: 'creepy_photo',
-          appName: 'Aparat',
-          title: 'Zdjęcie zapisane',
-          body: 'Przedni aparat · 1 nowe zdjęcie',
-          icon: Icons.camera_front,
-          iconBg: const Color(0xFFFF453A),
-        ));
-        // 5s later stalker comments on it.
-        Future.delayed(const Duration(seconds: 5), () {
-          if (!mounted || !context.read<PhoneState>().isUnlocked) return;
+        if (msgs.hasCompletedIntro) {
+          final l10n = L10nService.instance.dialogues['threads']?['nieznany']
+                  ?['systemMessages'] ??
+              {};
           msgs.deliverNpcMessage(
-            'stalker',
-            'Ładne zdjęcie.',
-            delay: const Duration(seconds: 1),
+            'nieznany',
+            l10n['files_nudge'] ??
+                'Widzisz te faktury? 14 tysięcy co miesiąc. "Konsulting". Teraz rozumiesz dlaczego policja nie szuka N.',
+            delay: const Duration(seconds: 6),
           );
-        });
-      });
+        }
+      };
+
+      context.read<FilesState>().onFileOpened = (fileId) {
+        if (!mounted) return;
+        final evidenceId = EvidenceMapping.fileToEvidence[fileId];
+        if (evidenceId != null) {
+          context.read<EvidenceState>().collect(evidenceId);
+        }
+      };
+
+      context.read<FilesState>().onChapter2Threshold = () {
+        if (!mounted) return;
+        context.read<ChapterState>().advanceToChapter2();
+      };
+
+      context.read<BrowserState>().onEntryVisited = (entryId) {
+        if (!mounted) return;
+        final evidenceId = EvidenceMapping.browserToEvidence[entryId];
+        if (evidenceId != null) {
+          context.read<EvidenceState>().collect(evidenceId);
+        }
+      };
+
+      context.read<BrowserState>().onPrivateUnlocked = () {
+        if (!mounted) return;
+        context.read<FlagsState>().set('puzzle.private_unlocked');
+        AudioService.instance.playSfx(GameSfx.unlockSuccess);
+        final msgs = context.read<MessagesState>();
+        if (msgs.hasCompletedIntro) {
+          final l10n = L10nService.instance.dialogues['threads']?['nieznany']
+                  ?['systemMessages'] ??
+              {};
+          msgs.deliverNpcMessage(
+            'nieznany',
+            l10n['browser_nudge'] ??
+                'Tak. To było jej tajne archiwum. Skrytka, prokurator, forum o stalkingu — to wszystko jej research. Zapisz sobie te adresy. Mogą się przydać.',
+            delay: const Duration(seconds: 4),
+          );
+        }
+      };
+
+      context.read<RecorderState>().onVoicePuzzleSolved = () {
+        if (!mounted) return;
+        context.read<FlagsState>().set('puzzle.voices_matched');
+        context.read<EvidenceState>().collect('voices_matched');
+        AudioService.instance.playSfx(GameSfx.unlockSuccess);
+        final msgs = context.read<MessagesState>();
+        if (msgs.hasCompletedIntro) {
+          final l10n = L10nService.instance.dialogues['threads']?['nieznany']
+                  ?['systemMessages'] ??
+              {};
+          msgs.deliverNpcMessage(
+            'nieznany',
+            l10n['recorder_nudge'] ??
+                'Genialne. Tak — to byli oni: Anita w pierwszym, Komendant K. w drugim, Tomasz B. (wspólnik HB) w trzecim. Teraz Anita ma już własną twarz na taśmie. To jest złoto.',
+            delay: const Duration(seconds: 4),
+          );
+        }
+      };
+
+      context.read<RecorderState>().onFirstListened = (recId) {
+        if (!mounted) return;
+        final evidenceId = EvidenceMapping.recordingToEvidence[recId];
+        if (evidenceId != null) {
+          context.read<EvidenceState>().collect(evidenceId);
+        }
+      };
+
+      context.read<MapsState>().onPuzzleSolved = () {
+        if (!mounted) return;
+        context.read<FlagsState>().set('puzzle.route_reconstructed');
+        context.read<EvidenceState>().collect('route_reconstructed');
+        AudioService.instance.playSfx(GameSfx.unlockSuccess);
+        final msgs = context.read<MessagesState>();
+        if (msgs.hasCompletedIntro) {
+          final l10n = L10nService.instance.dialogues['threads']?['nieznany']
+                  ?['systemMessages'] ??
+              {};
+          msgs.deliverNpcMessage(
+            'nieznany',
+            l10n['maps_nudge'] ??
+                'Mam jej trasę. Dom → biuro → kawiarnia z Anitą o 14 → parking o 21 → Las Kabacki C-2 o 23:45. Dokładnie tam, gdzie kopali. Ona nie zniknęła sama — szła sprawdzać sektor.',
+            delay: const Duration(seconds: 4),
+          );
+        }
+      };
+
+      context.read<EmailState>().onFullyRecovered = () {
+        if (!mounted) return;
+        context.read<FlagsState>().set('puzzle.email_recovered');
+        context.read<EvidenceState>().collect('email_recovered');
+        AudioService.instance.playSfx(GameSfx.unlockSuccess);
+        final msgs = context.read<MessagesState>();
+        if (msgs.hasCompletedIntro) {
+          final l10n = L10nService.instance.dialogues['threads']?['nieznany']
+                  ?['systemMessages'] ??
+              {};
+          msgs.deliverNpcMessage(
+            'nieznany',
+            l10n['email_nudge'] ??
+                'Złożyłeś jej ostatnią wiadomość. Tej nie zdążyła wysłać do Anity. Wszystko jest tam: spotkanie 14:00, sektor C-2, hasło do Signala. Anita sama tego nie zna — musisz przekazać.',
+            delay: const Duration(seconds: 5),
+          );
+        }
+      };
+
+      context.read<SignalPuzzleState>().onDecoded = () {
+        if (!mounted) return;
+        context.read<FlagsState>().set('puzzle.signal_decoded');
+        AudioService.instance.playSfx(GameSfx.unlockSuccess);
+        final l10n = L10nService.instance.dialogues['threads']?['prokurator']
+                ?['systemMessages'] ??
+            {};
+        context.read<MessagesState>().deliverNpcMessage(
+              'prokurator',
+              l10n['decoded'] ??
+                  'Mam Pana materiały. Wszystko zaszyfrowane. Wracajmy do rozmowy — czeka na Pana decyzja.',
+              delay: const Duration(seconds: 3),
+            );
+      };
+
+      context.read<AchievementsState>().onAchievementUnlocked = (a) {
+        if (!mounted) return;
+        AudioService.instance.playSfx(GameSfx.notification);
+        final l10n =
+            L10nService.instance.dialogues['meta']?['notifications'] ?? {};
+        context.read<NotificationsState>().push(AppNotification(
+              id: 'ach_${a.id}',
+              appName: l10n['achievement_app_name'] ?? 'Osiągnięcie',
+              title: a.title,
+              body: a.description,
+              icon: a.icon,
+              iconBg: a.iconColor,
+            ));
+      };
     });
   }
 
-  /// Ghost notification — a brief flash of a banner that disappears
-  /// before the player can read it. Creates paranoia.
-  void _scheduleGhostNotification() {
-    Future.delayed(const Duration(minutes: 2), () {
+  void _scheduleGhostNotification(DateTime sessionStart) {
+    final phone = context.read<PhoneState>();
+    final n = context.read<NotificationsState>();
+    final l10n = L10nService.instance.dialogues['meta']?['notifications'] ?? {};
+
+    _delay(const Duration(minutes: 5), () {
       if (!mounted) return;
-      // Don't fire if game was reset (phone locked again).
-      if (!context.read<PhoneState>().isUnlocked) return;
-      final n = context.read<NotificationsState>();
+      if (!phone.isUnlocked) return;
       n.push(AppNotification(
         id: 'ghost_${DateTime.now().microsecondsSinceEpoch}',
         appName: 'System',
-        title: 'Lokalizacja',
-        body: 'Ktoś sprawdził Twoją lokalizację',
+        title: l10n['ghost_title'] ?? 'Lokalizacja',
+        body: l10n['ghost_body'] ?? 'Ktoś sprawdził Twoją lokalizację',
         icon: Icons.location_on,
         iconBg: const Color(0xFFFF453A),
       ));
-      // Dismiss after just 1.5s — too fast to fully read.
-      Future.delayed(const Duration(milliseconds: 1500), () {
+      _delay(const Duration(milliseconds: 1500), () {
         if (!mounted) return;
         n.dismiss();
-      });
-    });
+      }, sessionStart: sessionStart);
+    }, sessionStart: sessionStart);
   }
 
-  /// Low battery warning after 3 minutes of gameplay.
-  void _scheduleLowBatteryAlert() {
-    Future.delayed(const Duration(minutes: 3), () {
-      if (!mounted) return;
-      if (!context.read<PhoneState>().isUnlocked) return;
-      final n = context.read<NotificationsState>();
-      n.push(AppNotification(
-        id: 'battery_low',
-        appName: 'System',
-        title: 'Bateria',
-        body: 'Pozostało 15% baterii. Włącz tryb oszczędzania energii.',
-        icon: Icons.battery_alert,
-        iconBg: const Color(0xFFFF9500),
-      ));
-    });
-  }
+  void _scheduleWifiConnect(DateTime sessionStart) {
+    final phone = context.read<PhoneState>();
+    final n = context.read<NotificationsState>();
+    final l10n = L10nService.instance.dialogues['meta']?['notifications'] ?? {};
 
-  /// Wi-Fi auto-connect notification — explains how Sheriff can message
-  /// despite no cellular. Fires 10s after unlock.
-  void _scheduleWifiConnect() {
-    Future.delayed(const Duration(seconds: 10), () {
+    _delay(const Duration(seconds: 20), () {
       if (!mounted) return;
-      if (!context.read<PhoneState>().isUnlocked) return;
-      final n = context.read<NotificationsState>();
+      if (!phone.isUnlocked) return;
       n.push(AppNotification(
         id: 'wifi_connect',
         appName: 'Wi-Fi',
-        title: 'Połączono z siecią',
-        body: 'HB_Guest_5G — połączenie nieszyfrowane',
+        title: l10n['wifi_title'] ?? 'Połączono z siecią',
+        body: l10n['wifi_body'] ?? 'HB_Guest_5G — połączenie nieszyfrowane',
         icon: Icons.wifi,
         iconBg: const Color(0xFF0A84FF),
       ));
+    }, sessionStart: sessionStart);
+  }
+
+  void _evaluateEndingAchievements(String endingId) {
+    if (!mounted) return;
+    final ach = context.read<AchievementsState>();
+    final endings = context.read<EndingState>();
+    final trust = context.read<TrustState>();
+    final evidence = context.read<EvidenceState>();
+    final flags = context.read<FlagsState>();
+    final unlockedAt = _unlockedAt;
+
+    if (endingId == 'truth') ach.unlock('truth_teller');
+    if (endingId == 'dawn') ach.unlock('dawn_walker');
+    if (endingId == 'witness') ach.unlock('witness_path');
+    if (endingId == 'shadow') ach.unlock('shadow_path');
+
+    var totalActive = _activeSessionDuration;
+    if (_lastResumeAt != null) {
+      totalActive += DateTime.now().difference(_lastResumeAt!);
+    }
+
+    if (totalActive < const Duration(minutes: 10)) {
+      ach.unlock('speedrun');
+    }
+
+    if (endingId == 'truth' || endingId == 'dawn') {
+      if (trust.get('anita') > 0) ach.unlock('pacifist');
+    }
+
+    if (trust.get('mama') >= 80) ach.unlock('mama_loyal');
+
+    final maxScore = EvidenceState.weights.values.fold<int>(0, (s, w) => s + w);
+    if (evidence.score >= maxScore) ach.unlock('detective');
+
+    if (flags.isSet('puzzle.private_unlocked') &&
+        flags.isSet('puzzle.voices_matched') &&
+        flags.isSet('puzzle.route_reconstructed') &&
+        flags.isSet('puzzle.email_recovered') &&
+        flags.isSet('puzzle.signal_decoded')) {
+      ach.unlock('investigator');
+    }
+
+    final discovered = endings.discoveredEndings;
+    if (discovered.length >= EndingState.catalog.length) {
+      ach.unlock('all_endings');
+    }
+  }
+
+  void _scheduleProsecutorOpening(String fromEndingId) {
+    if (!mounted) return;
+    final settings = context.read<SettingsState>();
+    final sessionStart = settings.currentRunStartedAt;
+    final messages = context.read<MessagesState>();
+    final l10n = L10nService.instance.dialogues['meta']?['prosecutor_bridge'] ?? {};
+    
+    final bridge = fromEndingId == 'truth'
+        ? (l10n['anita'] ?? 'Anita: Anita zadzwoniła do prokuratora wcześniej niż planowała. Powiedział że potrzebuje rozmowy z kimś, kto ma materiały. Z Tobą.')
+        : (l10n['tomasz'] ?? 'Tomasz: Komendant został zatrzymany. Ale śledczy chcą rozmawiać z Tobą — bezpośrednio. Daję Ci numer prokuratora R.');
+    
+    _delay(const Duration(seconds: 8), () {
+      if (!mounted) return;
+      if (settings.currentRunStartedAt != sessionStart) return;
+      final threadId = fromEndingId == 'truth' ? 'dziennikarka' : 'tomasz';
+      messages.deliverNpcMessage(threadId, bridge, delay: const Duration(seconds: 12));
+    }, sessionStart: sessionStart);
+    _delay(const Duration(seconds: 25), () {
+      if (!mounted) return;
+      if (settings.currentRunStartedAt != sessionStart) return;
+      messages.triggerProsecutorDialog();
+    }, sessionStart: sessionStart);
+  }
+
+  void _scheduleNgpMetaNarration(NewGamePlusState ngp) {
+    final settings = context.read<SettingsState>();
+    final sessionStart = settings.currentRunStartedAt;
+    final lastEnding = ngp.previousEndings.isNotEmpty ? ngp.previousEndings.last : null;
+    final messages = context.read<MessagesState>();
+    final phone = context.read<PhoneState>();
+
+    _delay(const Duration(seconds: 12), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      messages.deliverNpcMessage('nieznany', _ngpOpenerLine(lastEnding, ngp.runCount), delay: const Duration(seconds: 5));
+    }, sessionStart: sessionStart);
+    _delay(const Duration(seconds: 30), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      final l10n = L10nService.instance.dialogues['meta']?['ngp'] ?? {};
+      messages.deliverNpcMessage('nieznany', l10n['meta_closing'] ?? 'Wiem, jak to brzmi. Po prostu… zrób to lepiej tym razem.', delay: const Duration(seconds: 5));
+    }, sessionStart: sessionStart);
+  }
+
+  void _scheduleCycleHint(NewGamePlusState ngp) {
+    if (ngp.cycleHinted) return;
+    final settings = context.read<SettingsState>();
+    final phone = context.read<PhoneState>();
+    final sessionStart = settings.currentRunStartedAt;
+    final msgs = context.read<MessagesState>();
+    final l10n = L10nService.instance.dialogues['meta']?['ngp'] ?? {};
+
+    _delay(const Duration(minutes: 10), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      msgs.deliverNpcMessage('nieznany', l10n['cycle_hint_1'] ?? 'Słuchaj. Zauważyłeś, że za każdym razem to ten sam telefon? Ten sam piątek wieczorem? Ja tak.', delay: const Duration(seconds: 6));
+      _delay(const Duration(seconds: 20), () {
+        if (!mounted) return;
+        if (!phone.isUnlocked) return;
+        msgs.deliverNpcMessage('nieznany', l10n['cycle_hint_2'] ?? 'Jeśli kiedyś się zatrzymasz i zapytasz Szeryfa wprost — może nas obu stąd wypuści. Spróbuj. Następnym razem, gdy do ciebie napisze, dostaniesz nową opcję.', delay: const Duration(seconds: 8));
+        if (mounted) context.read<NewGamePlusState>().markCycleHinted();
+      }, sessionStart: sessionStart);
+    }, sessionStart: sessionStart);
+  }
+
+  void _scheduleHintWatchdog() {
+    _hintTimer?.cancel();
+    _lastInteractionAt = DateTime.now();
+    _hintTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (_isPaused) return;
+      if (context.read<EndingState>().activeEnding != null) { timer.cancel(); return; }
+      if (!context.read<PhoneState>().isUnlocked) return;
+      final last = _lastInteractionAt ?? _unlockedAt;
+      if (last == null) return;
+      final settings = context.read<SettingsState>();
+      final threshold = settings.guidedMode ? const Duration(minutes: 3) : const Duration(minutes: 10);
+      if (DateTime.now().difference(last) < threshold) return;
+      _deliverContextualHint();
+      _lastInteractionAt = DateTime.now();
     });
   }
 
-  /// Creepy moments — unsettling system notifications at intervals.
-  void _scheduleCreepyMoments() {
-    // 1:30 — camera access
-    Future.delayed(const Duration(seconds: 90), () {
-      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-      context.read<NotificationsState>().push(AppNotification(
+  void _deliverContextualHint() {
+    if (!mounted) return;
+    final l10n = L10nService.instance.dialogues['meta']?['hints'] ?? {};
+    final flags = context.read<FlagsState>();
+    final photos = context.read<PhotosState>();
+    final notes = context.read<NotesState>();
+    final files = context.read<FilesState>();
+    final browser = context.read<BrowserState>();
+    final messages = context.read<MessagesState>();
+    final chapter = context.read<ChapterState>();
+
+    String hint;
+    if (chapter.isChapter3 && !flags.isSet('puzzle.signal_decoded')) {
+      hint = l10n['chapter3_signal'] ??
+          'Prokurator R. czeka na potwierdzenie. Otwórz Signal na ekranie głównym — hasło to słowo z notatek N. plus godzina pierwszego nagrania.';
+    } else if (!photos.hasInspected('forest_night')) {
+      hint = l10n['photos_clue'] ??
+          'Wejdź w Zdjęcia. Szukaj ciemnego zdjęcia z lasu — kliknij Info na dole.';
+    } else if (!notes.hasUnlockedSecret) {
+      hint = l10n['notes_lock'] ??
+          'Masz kod 7309 z metadanych zdjęcia. Otwórz Notatki — jest tam zablokowana notatka.';
+    } else if (files.openedCount < FilesState.chapter2OpenThreshold) {
+      hint = l10n['files_progress'] ??
+          'W Plikach są dokumenty, które N. zebrała. Przeczytaj je wszystkie — to twoje twarde dowody.';
+    } else if (!browser.isPrivateUnlocked) {
+      hint = l10n['browser_private'] ??
+          'Karty prywatne w przeglądarce są zaszyfrowane. Hasło masz w notatkach: imię kota + rok urodzenia.';
+    } else if (!flags.isSet('puzzle.email_recovered')) {
+      hint = l10n['email_fragments'] ??
+          'W Poczcie jest pusty Kosz. Fragmenty wiadomości N. są rozsiane po innych aplikacjach. Przytrzymaj palec na podejrzanych elementach.';
+    } else if (!flags.isSet('puzzle.voices_matched')) {
+      hint = l10n['recorder_voices'] ??
+          'W Dyktafonie nagrania mają anonimowe głosy. Kojarz kontekst transkrypcji z osobami z Kontaktów.';
+    } else if (!flags.isSet('puzzle.route_reconstructed')) {
+      hint = l10n['maps_route'] ??
+          'W Mapach jest opcja "Zrekonstruuj ostatni dzień". Ułóż lokacje N. po godzinach z Kalendarza.';
+    } else {
+      hint = l10n['generic_ready'] ??
+          'Masz teraz wszystko. Odezwij się do Anity albo Tomasza.';
+    }
+    messages.deliverNpcMessage('nieznany', hint,
+        delay: const Duration(seconds: 1));
+  }
+
+  void _scheduleSolitudeWatchdog() {
+    _solitudeWatchdog?.cancel();
+    _solitudeWatchdog = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (context.read<EndingState>().activeEnding != null) { timer.cancel(); return; }
+      if (!context.read<PhoneState>().isUnlocked) return;
+      
+      var currentActive = _activeSessionDuration;
+      if (_lastResumeAt != null) {
+        currentActive += DateTime.now().difference(_lastResumeAt!);
+      }
+
+      if (currentActive.inMinutes < 25) return;
+      if (!context.read<TrustState>().allBelow(-50)) return;
+      timer.cancel();
+      context.read<MessagesState>().onEndingTriggered?.call('solitude');
+    });
+  }
+
+  void _scheduleCreepyMoments(DateTime sessionStart) {
+    final phone = context.read<PhoneState>();
+    final notifications = context.read<NotificationsState>();
+    final l10n = L10nService.instance.dialogues['meta']?['notifications'] ?? {};
+
+    _delay(const Duration(minutes: 12), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      notifications.push(AppNotification(
         id: 'creepy_camera',
         appName: 'System',
-        title: 'Aparat',
-        body: 'Aplikacja "Nieznana" uzyskała dostęp do aparatu',
+        title: l10n['creepy_camera_title'] ?? 'Aparat',
+        body: l10n['creepy_camera_body'] ??
+            'Aplikacja "Nieznana" uzyskała dostęp do aparatu',
         icon: Icons.camera_alt,
         iconBg: const Color(0xFFFF453A),
       ));
-    });
+    }, sessionStart: sessionStart);
 
-    // 4:00 — microphone
-    Future.delayed(const Duration(minutes: 4), () {
-      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-      context.read<NotificationsState>().push(AppNotification(
+    _delay(const Duration(minutes: 18), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      notifications.push(AppNotification(
         id: 'creepy_mic',
         appName: 'Prywatność',
-        title: 'Mikrofon aktywny',
-        body: 'Mikrofon jest używany w tle',
+        title: l10n['creepy_mic_title'] ?? 'Mikrofon aktywny',
+        body: l10n['creepy_mic_body'] ?? 'Mikrofon jest używany w tle',
         icon: Icons.mic,
         iconBg: const Color(0xFFFF9500),
       ));
-    });
+    }, sessionStart: sessionStart);
 
-    // 5:30 — someone tried to unlock
-    Future.delayed(const Duration(minutes: 5, seconds: 30), () {
-      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-      context.read<NotificationsState>().push(AppNotification(
+    _delay(const Duration(minutes: 25), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      notifications.push(AppNotification(
         id: 'creepy_unlock',
         appName: 'Bezpieczeństwo',
-        title: 'Próba logowania',
-        body: 'Nieudana próba zdalnego odblokowania urządzenia',
+        title: l10n['creepy_unlock_title'] ?? 'Próba logowania',
+        body: l10n['creepy_unlock_body'] ??
+            'Nieudana próba zdalnego odblokowania urządzenia',
         icon: Icons.security,
         iconBg: const Color(0xFFFF453A),
       ));
-      // Trigger a glitch burst for extra scare.
-      AudioService.instance.playSfx(GameSfx.glitchBurst);
-    });
+    }, sessionStart: sessionStart);
 
-    // Stalker messages — anonymous threatening texts at intervals.
-    _scheduleStalkerMessages();
+    _scheduleStalkerMessages(sessionStart);
   }
 
-  /// Anonymous stalker sends creepy messages at timed intervals.
-  /// Uses real location and time of day for maximum horror.
-  void _scheduleStalkerMessages() {
+  void _scheduleStalkerMessages(DateTime sessionStart) {
     final msgs = context.read<MessagesState>();
+    final phone = context.read<PhoneState>();
     final loc = LocationService.instance;
+    final l10n = L10nService.instance.dialogues['threads']?['stalker']?['systemMessages'] ?? {};
     final hour = DateTime.now().hour;
-    final timeComment = hour >= 22 || hour < 6
-        ? 'Ciemno u ciebie, prawda?'
-        : hour >= 18
-            ? 'Wieczór. Zamknij zasłony.'
-            : 'Dzień. Myślisz że jesteś bezpieczny?';
+    
+    final timeComment = hour >= 22 || hour < 6 
+        ? (l10n['night'] ?? 'Ciemno u ciebie, prawda?') 
+        : hour >= 18 
+            ? (l10n['evening'] ?? 'Wieczór. Zamknij zasłony.') 
+            : (l10n['day'] ?? 'Dzień. Myślisz że jesteś bezpieczny?');
 
-    // 1:00 — first message (generic)
-    Future.delayed(const Duration(minutes: 1), () {
-      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-      msgs.deliverNpcMessage(
-        'stalker',
-        'Widzę cię.',
-        delay: const Duration(seconds: 1),
-      );
-    });
+    _delay(const Duration(minutes: 3), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      msgs.deliverNpcMessage('stalker', l10n['i_see_you'] ?? 'Widzę cię.',
+          delay: const Duration(seconds: 6));
+    }, sessionStart: sessionStart);
 
-    // 2:30 — uses real time
-    Future.delayed(const Duration(minutes: 2, seconds: 30), () {
-      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-      msgs.deliverNpcMessage(
-        'stalker',
-        timeComment,
-        delay: const Duration(seconds: 1),
-      );
-    });
+    _delay(const Duration(minutes: 7), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      msgs.deliverNpcMessage('stalker', timeComment, delay: const Duration(seconds: 8));
+    }, sessionStart: sessionStart);
 
-    // 4:00 — uses real location
-    Future.delayed(const Duration(minutes: 4), () {
-      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-      final city = loc.city;
-      final district = loc.district;
-      final text = loc.hasRealLocation
-          ? '$city. $district. Nie ruszaj się.'
-          : 'Wiem gdzie jesteś. Nie ruszaj się.';
-      msgs.deliverNpcMessage(
-        'stalker',
-        text,
-        delay: const Duration(seconds: 1),
-      );
-    });
+      _delay(const Duration(minutes: 15), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      final text = loc.hasRealLocation 
+          ? (l10n['loc_city'] ?? '{city}. {district}. Nie ruszaj się.').replaceAll('{city}', loc.city).replaceAll('{district}', loc.district)
+          : (l10n['loc_prefix'] ?? 'Wiem gdzie jesteś. Nie ruszaj się.');
+      msgs.deliverNpcMessage('stalker', text, delay: const Duration(seconds: 10));
+    }, sessionStart: sessionStart);
 
-    // 5:30 — escalation
-    Future.delayed(const Duration(minutes: 5, seconds: 30), () {
-      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-      msgs.deliverNpcMessage(
-        'stalker',
-        'Nie powinieneś był tego włączać. Ten telefon nie jest twój.',
-        delay: const Duration(seconds: 1),
-      );
-    });
+    _delay(const Duration(minutes: 22), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      msgs.deliverNpcMessage('stalker', l10n['warning_phone'] ?? 'Nie powinieneś był tego włączać. Ten telefon nie jest twój.', delay: const Duration(seconds: 12));
+    }, sessionStart: sessionStart);
 
-    // 7:00 — final warning with location
-    Future.delayed(const Duration(minutes: 7), () {
-      if (!mounted || !context.read<PhoneState>().isUnlocked) return;
-      final text = loc.hasRealLocation
-          ? 'Jadę do ${loc.city}. Odłóż telefon. Ostatnie ostrzeżenie.'
-          : 'Jadę po ciebie. Odłóż telefon. Ostatnie ostrzeżenie.';
-      msgs.deliverNpcMessage(
-        'stalker',
-        text,
-        delay: const Duration(seconds: 1),
-      );
-    });
+    _delay(const Duration(minutes: 30), () {
+      if (!mounted) return;
+      if (!phone.isUnlocked) return;
+      final text = loc.hasRealLocation 
+          ? (l10n['last_warning_city'] ?? 'Jadę do {city}. Odłóż telefon. Ostatnie ostrzeżenie.').replaceAll('{city}', loc.city)
+          : (l10n['last_warning'] ?? 'Jadę po ciebie. Odłóż telefon. Ostatnie ostrzeżenie.');
+      msgs.deliverNpcMessage('stalker', text, delay: const Duration(seconds: 15));
+    }, sessionStart: sessionStart);
+  }
+
+  Future<void> _resetGameForNewStart(BuildContext context) async {
+    await PersistenceService.instance.clearGameState();
+    if (!context.mounted) return;
+    context.read<MessagesState>().reset();
+    context.read<NotesState>().reset();
+    context.read<PhotosState>().reset();
+    context.read<FilesState>().reset();
+    context.read<BrowserState>().reset();
+    context.read<ChapterState>().reset();
+    context.read<TrustState>().reset();
+    context.read<EvidenceState>().reset();
+    context.read<FlagsState>().reset();
+    context.read<EmailState>().reset();
+    context.read<RecorderState>().reset();
+    context.read<MapsState>().reset();
+    context.read<SignalPuzzleState>().reset();
+    context.read<PhoneState>().reset();
+    context.read<NotificationsState>().reset();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Intro sequence — narrative frame before boot.
-    if (!_introComplete) {
-      return IntroScreen(
-        onComplete: () => setState(() => _introComplete = true),
+    final settings = context.watch<SettingsState>();
+    if (!settings.contentWarningShown) {
+      return ContentWarningScreen(onContinue: () => setState(() {}));
+    }
+
+    final ngp = context.watch<NewGamePlusState>();
+    if (!_ngpChoiceMade && ngp.canStartPlus) {
+      return NewGamePlusChoiceScreen(
+        onContinueRegular: () async {
+          await _resetGameForNewStart(context);
+          if (mounted) setState(() => _ngpChoiceMade = true);
+        },
+        onContinuePlus: () => setState(() => _ngpChoiceMade = true),
       );
     }
 
-    // Boot sequence — show once on app start.
+    if (!_introComplete) {
+      return IntroScreen(onComplete: () => setState(() => _introComplete = true));
+    }
+
     if (!_bootComplete) {
-      return BootScreen(
-        onComplete: () => setState(() => _bootComplete = true),
-      );
+      return BootScreen(onComplete: () => setState(() => _bootComplete = true));
     }
 
     final unlocked = context.select<PhoneState, bool>((s) => s.isUnlocked);
-    final hasEnding =
-        context.select<EndingState, bool>((s) => s.activeEnding != null);
+    final hasEnding = context.select<EndingState, bool>((s) => s.activeEnding != null);
+    final sheriffUnread = context.select<MessagesState, int>((s) => s.threadById('szeryf')?.unreadCount ?? 0);
 
-    // Glitch activates when the Sheriff thread exists and has unread
-    // messages or the NPC is typing in it — creates digital unease.
-    final sheriffUnread = context.select<MessagesState, int>(
-        (s) => s.threadById('szeryf')?.unreadCount ?? 0);
-    final isNpcTyping =
-        context.select<MessagesState, bool>((s) => s.isNpcTyping);
-    final glitchActive = unlocked &&
-        !hasEnding &&
-        (sheriffUnread > 0 || isNpcTyping);
-
-    // Detect game reset — phone locked again after being unlocked.
     if (!unlocked && _wasUnlocked) {
       _wasUnlocked = false;
       _tensionActive = false;
+      _incomingCall = false;
       _ringerTimer?.cancel();
       _ringerTimer = null;
       _sheriffCountdown?.cancel();
       _sheriffCountdown = null;
+      _solitudeWatchdog?.cancel();
+      _solitudeWatchdog = null;
+      _hintTimer?.cancel();
+      _hintTimer = null;
+      _unlockedAt = null;
+      _showWelcomeBack = false;
+      context.read<SettingsState>().clearRunStart();
     }
 
-    // Audio: start ambient on first unlock.
     if (unlocked && !_wasUnlocked) {
       _wasUnlocked = true;
+      _unlockedAt = DateTime.now();
+      _lastResumeAt = _unlockedAt;
+      _activeSessionDuration = Duration.zero;
       AudioService.instance.startAmbient();
-      // Start immersive timers only after first unlock.
-      _scheduleWifiConnect();
-      _scheduleGhostNotification();
-      _scheduleLowBatteryAlert();
-      _scheduleCreepyMoments();
+      context.read<AchievementsState>().unlock('first_unlock');
+      context.read<SettingsState>().markRunStart(_unlockedAt!);
+      if (settings.hasBeenAwayLong) {
+        final hasProgress = context.read<NotesState>().hasUnlockedSecret ||
+            context.read<FilesState>().openedCount > 0 ||
+            context.read<EvidenceState>().score > 0;
+        if (hasProgress) _showWelcomeBack = true;
+      }
+      settings.touchLastPlayed();
 
-      // Immediate nudge — Nieznany's unread message raises a banner
-      // so the player knows to check Messages first.
-      Future.delayed(const Duration(seconds: 2), () {
+      if (ngp.isPlusActive && ngp.runCount >= 1) _scheduleNgpMetaNarration(ngp);
+      if (ngp.isPlusActive && ngp.runCount >= 2) _scheduleCycleHint(ngp);
+      _scheduleWifiConnect(_unlockedAt!);
+      _scheduleGhostNotification(_unlockedAt!);
+      _scheduleCreepyMoments(_unlockedAt!);
+      _scheduleSolitudeWatchdog();
+      _scheduleHintWatchdog();
+      
+      final phone = context.read<PhoneState>();
+      final sessionStart = _unlockedAt!;
+      final msgs = context.read<MessagesState>();
+
+      _delay(const Duration(seconds: 6), () {
         if (!mounted) return;
-        final msgs = context.read<MessagesState>();
+        if (!phone.isUnlocked) return;
         final nieznany = msgs.threadById('nieznany');
-        if (nieznany != null && nieznany.unreadCount > 0) {
-          context.read<NotificationsState>().push(AppNotification(
-            id: 'nudge_nieznany',
-            appName: 'Wiadomości',
-            title: 'Nieznany',
-            body: nieznany.lastMessage?.text ?? '',
-            icon: Icons.chat_bubble,
-            iconBg: const Color(0xFF34C759),
-            onTap: () {
-              // Navigate to chat if banner is tapped.
-              final nav = _navKey.currentState;
-              if (nav == null) return;
-              msgs.openThread('nieznany');
-              nav.push(MaterialPageRoute(
-                builder: (_) => ChatView(threadId: 'nieznany'),
-              )).then((_) {
-                if (!mounted) return;
-                msgs.closeThread();
-              });
-            },
-          ));
+        if (nieznany != null && nieznany.messages.isEmpty) {
+          final dialogues = L10nService.instance.dialogues['threads'] as Map<String, dynamic>? ?? {};
+          final nData = dialogues['nieznany'] ?? {};
+          final nMsgs = (nData['messages'] as List? ?? []);
+          if (nMsgs.isNotEmpty) msgs.deliverNpcMessage('nieznany', nMsgs.first as String, delay: const Duration(seconds: 1));
         }
-      });
+      }, sessionStart: sessionStart);
+      
+      _delay(const Duration(minutes: 4), () {
+        if (!mounted) return;
+        if (!phone.isUnlocked) return;
+        final l10n = L10nService.instance.dialogues['threads']?['szeryf'] ?? {};
+        setState(() {
+          _incomingCall = true;
+          _callerName = l10n['contactName'] ?? 'Sheriff';
+        });
+      }, sessionStart: sessionStart);
+
+      final notifications = context.read<NotificationsState>();
+      _delay(const Duration(seconds: 5), () {
+        if (!mounted) return;
+        final nieznany = msgs.threadById('nieznany');
+        if (nieznany == null || nieznany.unreadCount == 0) return;
+        notifications.push(AppNotification(
+          id: 'nudge_nieznany',
+          appName: 'Wiadomości',
+          title: nieznany.contactName,
+          body: nieznany.lastMessage?.text ?? '',
+          icon: Icons.chat_bubble,
+          iconBg: const Color(0xFF34C759),
+          onTap: () {
+            final nav = _navKey.currentState;
+            if (nav == null) return;
+            msgs.openThread('nieznany');
+            nav
+                .push(MaterialPageRoute(
+                    builder: (_) => const ChatView(threadId: 'nieznany')))
+                .then((_) {
+              if (!mounted) return;
+              msgs.closeThread();
+            });
+          },
+        ));
+      }, sessionStart: sessionStart);
     }
 
-    // Audio: tension track when Sheriff is active.
-    if (glitchActive && !_tensionActive) {
+    if (sheriffUnread > 0 && !_tensionActive) {
       _tensionActive = true;
       AudioService.instance.startTension();
-    } else if (!glitchActive && _tensionActive) {
+    } else if (sheriffUnread == 0 && _tensionActive) {
       _tensionActive = false;
       AudioService.instance.stopTension();
     }
 
-    // Cyclic vibration while Sheriff is "ringing" — only when the
-    // player isn't actively in his chat.
-    final activeThread =
-        context.select<MessagesState, String?>((s) => s.activeThread?.id);
+    final activeThread = context.select<MessagesState, String?>((s) => s.activeThread?.id);
     final shouldRing = sheriffUnread > 0 && activeThread != 'szeryf' && !hasEnding;
     _updateRinger(shouldRing);
 
-    // Audio: stop everything on ending.
-    if (hasEnding) {
-      AudioService.instance.stopAmbient();
-      _updateRinger(false);
+    if (hasEnding) { AudioService.instance.stopAmbient(); _updateRinger(false); }
+
+    return PhoneShellEvents(
+      onPause: _pause,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          final nav = _navKey.currentState;
+          if (nav != null && nav.canPop()) { nav.pop(); } else if (unlocked && !hasEnding) { _pause(); }
+        },
+        child: Stack(
+          children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            child: unlocked
+                ? KeyedSubtree(
+                    key: const ValueKey('home'),
+                    child: Navigator(
+                      key: _navKey,
+                      onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    ),
+                  )
+                : const LockScreen(key: ValueKey('lock')),
+          ),
+          if (unlocked && !hasEnding) const Positioned(top: 0, left: 0, right: 0, child: NotificationBannerHost()),
+          if (hasEnding) const Positioned.fill(child: EndingOverlay()),
+          if (context.select<ChapterState, bool>((s) => s.shouldAnimateTransition))
+            Positioned.fill(child: ChapterTransitionOverlay(onComplete: () { context.read<ChapterState>().clearTransitionFlag(); })),
+          if (_isPaused && unlocked && !hasEnding) Positioned.fill(child: PauseOverlay(onResume: _resume)),
+          if (_showWelcomeBack && unlocked && !hasEnding && !_isPaused)
+            Positioned.fill(child: WelcomeBackOverlay(onContinue: () => setState(() => _showWelcomeBack = false))),
+          if (_incomingCall && unlocked && !hasEnding)
+            Positioned.fill(child: IncomingCallOverlay(callerName: _callerName ?? 'Nieznany', onDismiss: () => setState(() => _incomingCall = false))),
+
+          // Global Home Indicator / Gesture bar
+          if (unlocked && !hasEnding)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _GlobalHomeIndicator(
+                onTap: () {
+                  final nav = _navKey.currentState;
+                  if (nav != null && nav.canPop()) {
+                    nav.popUntil((route) => route.isFirst);
+                  }
+                },
+                onLongPress: _pause,
+              ),
+            ),
+        ],
+      ),
+    ),
+    );
+  }
+
+  void _startSheriffCountdown(MessagesState messages, {required DateTime targetTime}) {
+    _sheriffCountdown?.cancel();
+    _sheriffCountdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (DateTime.now().isAfter(targetTime)) {
+        timer.cancel();
+        _sheriffCountdown = null;
+        _sheriffTargetTime = null;
+        messages.onEndingTriggered?.call('caught');
+      }
+    });
+  }
+
+  void _pause() {
+    if (_isPaused) return;
+    setState(() => _isPaused = true);
+    context.read<MessagesState>().setPaused(true);
+    
+    // Track active session time
+    if (_lastResumeAt != null) {
+      _activeSessionDuration += DateTime.now().difference(_lastResumeAt!);
+      _lastResumeAt = null;
     }
 
-    return Stack(
-      children: [
-        // Main content — lock/home switch.
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
-          child: unlocked
-              ? KeyedSubtree(
-                  key: const ValueKey('home'),
-                  child: Navigator(
-                    key: _navKey,
-                    onGenerateRoute: (_) => MaterialPageRoute(
-                      builder: (_) => const HomeScreen(),
-                    ),
-                  ),
-                )
-              : const LockScreen(key: ValueKey('lock')),
-        ),
-        // Notification banner.
-        if (unlocked && !hasEnding)
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: NotificationBannerHost(),
-          ),
-        if (unlocked && !hasEnding)
-          Positioned.fill(child: GlitchOverlay(active: glitchActive)),
-        // Scare overlay on top — blackout covers everything.
-        if (unlocked && !hasEnding)
-          Positioned.fill(
-            child: ScareOverlay(active: unlocked && !hasEnding),
-          ),
-        if (hasEnding) const Positioned.fill(child: EndingOverlay()),
+    // Calculate remaining time for sheriff if active
+    if (_sheriffTargetTime != null) {
+      _sheriffTimeRemaining = _sheriffTargetTime!.difference(DateTime.now());
+      if (_sheriffTimeRemaining! < Duration.zero) _sheriffTimeRemaining = Duration.zero;
+    }
+    
+    _sheriffCountdown?.cancel(); 
+    _solitudeWatchdog?.cancel(); _solitudeWatchdog = null;
+    _hintTimer?.cancel(); _hintTimer = null;
+    _ringerTimer?.cancel(); _ringerTimer = null;
+    AudioService.instance.stopTension();
+  }
 
-        // Chapter 2 transition overlay — appears once when crossing
-        // the file-threshold trigger.
-        if (context.select<ChapterState, bool>(
-            (s) => s.shouldAnimateTransition))
-          Positioned.fill(
-            child: ChapterTransitionOverlay(
-              onComplete: () {
-                context.read<ChapterState>().clearTransitionFlag();
-              },
+  void _resume() {
+    if (!_isPaused) return;
+    setState(() => _isPaused = false);
+    context.read<MessagesState>().setPaused(false);
+    
+    _lastResumeAt = DateTime.now();
+
+    if (_unlockedAt != null) { 
+      _scheduleSolitudeWatchdog(); 
+      _scheduleHintWatchdog(); 
+      
+      // Recalculate target time based on remaining duration
+      if (_sheriffTimeRemaining != null) {
+        _sheriffTargetTime = DateTime.now().add(_sheriffTimeRemaining!);
+        _sheriffTimeRemaining = null;
+        _startSheriffCountdown(context.read<MessagesState>(), targetTime: _sheriffTargetTime!);
+      }
+    }
+  }
+
+  Future<void> _delay(Duration duration, void Function() action, {DateTime? sessionStart}) async {
+    var remaining = duration;
+    final startSession = sessionStart ?? context.read<SettingsState>().currentRunStartedAt;
+    
+    while (remaining > Duration.zero) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      
+      // If session changed (reset), abort
+      if (context.read<SettingsState>().currentRunStartedAt != startSession) return;
+      
+      if (!_isPaused) {
+        remaining -= const Duration(milliseconds: 500);
+      }
+    }
+    
+    if (mounted && context.read<SettingsState>().currentRunStartedAt == startSession) {
+      action();
+    }
+  }
+
+  String _ngpOpenerLine(String? lastEnding, int runCount) {
+    final l10n = L10nService.instance.dialogues['meta']?['ngp'] ?? {};
+    final prefix = runCount == 1 
+        ? (l10n['opener_prefix_1'] ?? 'Wróciłeś. ') 
+        : (l10n['opener_prefix_multi'] ?? 'Znowu. To już {count}-ty raz. ').replaceAll('{count}', runCount.toString());
+    
+    String body;
+    switch (lastEnding) {
+      case 'caught': body = l10n['caught'] ?? 'Ostatnio dali się ciebie złapać. Tym razem nie kłam Szeryfowi za szybko.'; break;
+      case 'escape': body = l10n['escape'] ?? 'Ostatnio uciekłeś z dowodami w kieszeni. N. wciąż jest gdzie tam. Może tym razem nie zostawimy jej tam samej?'; break;
+      case 'truth': body = l10n['truth'] ?? 'Anita publikowała w sobotę. Dobrze. Ale N. nadal nie wróciła. Spróbuj inaczej.'; break;
+      case 'dawn': body = l10n['dawn'] ?? 'Już raz znalazłeś N. żywą. Jak to się skończyło? Jak myślisz?'; break;
+      case 'corruption': body = l10n['corruption'] ?? 'Wziąłeś kopertę. Każdy z nas ma swoją cenę. Może tym razem spróbujesz nie mieć?'; break;
+      case 'solitude': body = l10n['solitude'] ?? 'Ostatnio nikomu nie zaufałeś. Wiesz że Mama do ciebie pisała? Otwórz jej wiadomości. Tym razem.'; break;
+      case 'cycle': body = l10n['cycle'] ?? 'Wróciłeś nawet po tym, jak ci wszystko wytłumaczyłem.\nAlbo jesteś uparty, albo nie pamiętasz.\nAlbo jedno i drugie.'; break;
+      default: body = l10n['default'] ?? 'Telefon znowu w twoich rękach. Pamiętasz coś z poprzedniego razu? Niezależnie — zaczynamy od nowa.';
+    }
+    return '$prefix$body';
+  }
+}
+
+/// Global bottom bar that mimics modern phone gestures.
+/// Tap to go Home, Long Press to Pause.
+class _GlobalHomeIndicator extends StatelessWidget {
+  const _GlobalHomeIndicator({required this.onTap, required this.onLongPress});
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12.0), // Added bottom margin for gesture navigation
+        child: GestureDetector(
+          onTap: onTap,
+          onLongPress: () {
+            HapticFeedback.heavyImpact();
+            onLongPress();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: double.infinity,
+            height: 32, // Large hit area for small visual
+            alignment: Alignment.center,
+            child: Container(
+              width: 130,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(3),
+              ),
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }

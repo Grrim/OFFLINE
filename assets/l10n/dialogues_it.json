@@ -1,0 +1,122 @@
+{
+  "threads": {
+    "mama": {
+      "contactName": "Mamma",
+      "messages": [
+        "Ti sei ricordata di prendere la medicina per la pressione?",
+        "Mruczek ha graffiato di nuovo il divano. Quel gatto mi farà morire.",
+        "Tesoro, la signora Halinka ha chiesto di te. Chiamala quando hai un momento.",
+        "Hai sentito che stanno facendo di nuovo qualcosa in quel bosco fuori città? La nonna dice che di notte ci sono dei rumori. Macchinari pesanti.",
+        "Perché non rispondi? Va tutto bene?",
+        "Dove sei?",
+        "Parlami!",
+        "Ho chiamato il tuo ufficio. Hanno detto che non ti fai vedere da venerdì. Cosa sta succedendo?"
+      ],
+      "nodes": {
+        "respond": {
+          "choices": [
+            { "text": "Mamma, non sono N. Ho trovato il suo telefono. È scomparsa.", "nextNodeId": "shock" },
+            { "text": "Va tutto bene, non preoccuparti. Ci sentiamo dopo.", "nextNodeId": "lie" }
+          ]
+        },
+        "shock": {
+          "npcMessages": [
+            "Cosa?? In che senso scomparsa?! Chi parla?!",
+            "Dio... chiamo la polizia. Subito."
+          ],
+          "choices": [
+            { "text": "NON chiamare la polizia! Sono coinvolti in questa faccenda!", "nextNodeId": "warning" }
+          ]
+        },
+        "warning": {
+          "npcMessages": [
+            "Cosa stai dicendo... coinvolti come...",
+            "Va bene. Non chiamerò. Ma dimmi cosa sta succedendo.",
+            "Per favore, dimmi che mia figlia è viva."
+          ],
+          "choices": [
+            { "text": "Sto facendo tutto il possibile per trovarla. Fidati di me.", "nextNodeId": "trust" }
+          ]
+        },
+        "trust": {
+          "npcMessages": [
+            "Va bene... va bene. Mi fido di te.",
+            "Per favore, fai attenzione. Chiunque tu sia."
+          ]
+        },
+        "lie": {
+          "npcMessages": [
+            "Tesoro? Perché scrivi in modo così strano?",
+            "Non sembri tu. Cosa succede?"
+          ]
+        }
+      }
+    },
+    "nieznany": {
+      "contactName": "Sconosciuto",
+      "messages": [
+        "Vedo che sei riuscito a sbloccare il suo telefono. Non abbiamo molto tempo. Sanno già che ce l'hai."
+      ],
+      "nodes": {
+        "intro": {
+          "choices": [
+            { "text": "Chi sei? Dov'è la proprietaria di questo telefono?", "nextNodeId": "branch_a" },
+            { "text": "È uno scherzo. Vado alla polizia con questo.", "nextNodeId": "branch_b" }
+          ]
+        },
+        "branch_a": {
+          "npcMessages": [
+            "Un amico. E la polizia è l'ultimo posto dove dovresti andare in questo momento se vuoi che lei sopravviva."
+          ]
+        },
+        "branch_b": {
+          "npcMessages": [
+            "La polizia? Perché pensi che sia dovuta scappare? Non essere ingenuo."
+          ]
+        },
+        "convergence": {
+          "npcMessages": [
+            "Devi fidarti di me. Vai nella Galleria foto. Trova una foto scattata ieri sera. Devi decriptare il messaggio nascosto lì dentro prima che disattivino questo telefono. Fai in fretta."
+          ]
+        },
+        "hint_files": {
+          "npcMessages": [
+            "Un'altra cosa — nei File ci sono dei documenti che lei ha raccolto. Fatture, registrazioni, una lista di tangenti. Leggili. Capirai con chi hai a che fare.",
+            "E non provare a chiamare la polizia da questo telefono. Non c'è segnale. Inoltre... la polizia fa parte del problema.",
+            "Ora vai su Foto. Trova quella foto scura del bosco — scattata ieri notte. Cliccaci sopra e premi il pulsante Info in basso. Il codice è nascosto lì."
+          ]
+        }
+      }
+    },
+    "dziennikarka": {
+      "contactName": "Anita Z. (Giornalista)",
+      "messages": [
+        "Ehi N., ho il materiale pronto per la pubblicazione. Mi serve solo il tuo via libera e quei documenti di cui hai parlato.",
+        "Il caporedattore esita — ha paura di una causa da parte di Helion-Bud. Dammi qualcosa nero su bianco e usciremo sabato.",
+        "Ci sei?",
+        "N., inizio a preoccuparmi. Contattami non appena puoi."
+      ]
+    }
+  },
+  "contacts": {
+    "mama": "❤️",
+    "anita": "Signal! Non SMS. Giornalista investigativa, giornale locale.",
+    "tomasz": "Tomasz. N. 14, 2° piano. Ex dipendente HB. Password: \"l'albero che è caduto sul tetto\". MI FIDO DI LUI.",
+    "praca": "Agenzia Horizon Media. Reception.",
+    "kasia": "Password Wi-Fi ufficio — chiedi a lei.",
+    "cafe": "Prenotazione tavolo. Wi-Fi: gosc.relaks",
+    "wet": "Vaccinazione — Giugno!",
+    "tata": "",
+    "szeryf": "Comandante K. NON RISPONDERE. NON RICHIAMARE. Sa chi sono. Sa cosa ho."
+  },
+  "calendar": {
+    "mon": { "title": "Lavoro — ufficio", "subtitle": "Giorno normale", "detail": "Nulla di sospetto. Solita riunione del lunedì." },
+    "tue": { "title": "Spesa", "subtitle": "latte, pomodori, cibo gatto", "detail": "Ricordare la lettiera la prossima volta." },
+    "wed": { "title": "Selfie — Plac Zbawiciela", "subtitle": "Incontro con un'amica?", "detail": "È stato bello dimenticare tutto per un po'." },
+    "thu": { "title": "⚠️ Auto sotto casa", "subtitle": "Luci spente, 2 ore sotto la finestra", "detail": "Berlina scura. Impossibile vedere il conducente. Sono lì dalle 22:00. Ho paura." },
+    "fri_work": { "title": "Non si è presentata al lavoro", "subtitle": "Ufficio: \"non la vediamo da stamattina\"", "detail": "Telefono spento." },
+    "fri_meeting": { "title": "Incontro: Anita Z. (Giornalista)", "subtitle": "Caffè Relaks — ASSENTE", "detail": "Anita ha aspettato 2 ore." },
+    "sat_photo": { "title": "📷 Foto — Bosco di Kabacki", "subtitle": "Ultima foto in galleria", "detail": "Settore C-2." },
+    "sat_note": { "title": "📝 Nota: \"IN CASO DI SCOMPARSA\"", "subtitle": "Ultima attività telefono", "detail": "Ho scritto tutto." }
+  }
+}

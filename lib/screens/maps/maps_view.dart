@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../state/maps_state.dart';
+import '../../widgets/fragment_hotspot.dart';
 import '../../widgets/status_bar.dart';
 
-/// Maps app — shows N.'s significant locations as a list with
-/// "last visited" timestamps. No actual map rendering (would require
-/// Google Maps API), but the list format feels like a "Significant
-/// Locations" privacy screen on iOS.
+/// Maps app — list of significant locations + drag-reorder route
+/// reconstruction puzzle. The puzzle starts collapsed; player taps
+/// "Zrekonstruuj trasę" to expand it, then drags pins into chronological
+/// order.
 class MapsView extends StatelessWidget {
   const MapsView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<MapsState>();
+    final pins = state.pins;
+    final solved = state.isPuzzleSolved;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -35,6 +43,10 @@ class MapsView extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  const Spacer(),
+                  if (solved)
+                    const Icon(Icons.verified,
+                        color: Color(0xFF34C759), size: 22),
                 ],
               ),
             ),
@@ -51,11 +63,13 @@ class MapsView extends StatelessWidget {
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.warning_amber, color: Color(0xFFFF453A), size: 18),
+                    Icon(Icons.warning_amber,
+                        color: Color(0xFFFF453A), size: 18),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Ostatnia znana lokalizacja: Las Kabacki, 17.05.2026 23:45',
+                        'Ostatnia znana lokalizacja: '
+                        'Las Kabacki, 17.05.2026 23:45',
                         style: TextStyle(
                           color: Color(0xFFFF453A),
                           fontSize: 12,
@@ -69,65 +83,20 @@ class MapsView extends StatelessWidget {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: const [
-                  _LocationEntry(
-                    name: 'Dom',
-                    address: 'ul. Puławska 142/14, Warszawa',
-                    visits: '347 wizyt',
-                    lastVisit: '17 maja, 18:30',
-                    icon: Icons.home,
-                    color: Color(0xFF34C759),
-                  ),
-                  _LocationEntry(
-                    name: 'Praca',
-                    address: 'ul. Marszałkowska 89, Warszawa',
-                    visits: '124 wizyty',
-                    lastVisit: '15 maja, 17:00',
-                    icon: Icons.work,
-                    color: Color(0xFF0A84FF),
-                  ),
-                  _LocationEntry(
-                    name: 'Cafe Relaks',
-                    address: 'ul. Mokotowska 17, Warszawa',
-                    visits: '23 wizyty',
-                    lastVisit: '16 maja, 14:22',
-                    icon: Icons.local_cafe,
-                    color: Color(0xFFFF9F0A),
-                  ),
-                  _LocationEntry(
-                    name: 'Las Kabacki — sektor C-2',
-                    address: 'Las Kabacki, Warszawa-Ursynów',
-                    visits: '3 wizyty',
-                    lastVisit: '17 maja, 23:45',
-                    icon: Icons.forest,
-                    color: Color(0xFFFF453A),
-                    isAlert: true,
-                  ),
-                  _LocationEntry(
-                    name: 'Parking — hipermarket Mokotów',
-                    address: 'ul. Wołoska 12, Warszawa',
-                    visits: '4 wizyty',
-                    lastVisit: '10 maja, 22:14',
-                    icon: Icons.local_parking,
-                    color: Color(0xFF8E8E93),
-                  ),
-                  _LocationEntry(
-                    name: 'Dworzec Warszawa Centralna',
-                    address: 'Al. Jerozolimskie 54, Warszawa',
-                    visits: '2 wizyty',
-                    lastVisit: '16 maja, 23:20',
-                    icon: Icons.train,
-                    color: Color(0xFF5AC8FA),
-                  ),
-                  _LocationEntry(
-                    name: 'Plac Zbawiciela',
-                    address: 'Plac Zbawiciela, Warszawa',
-                    visits: '8 wizyt',
-                    lastVisit: '14 maja, 17:22',
-                    icon: Icons.place,
-                    color: Color(0xFFFFCC00),
-                  ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                children: [
+                  for (final p in pins)
+                    if (p.id == 'las_kabacki')
+                      FragmentHotspot(
+                        fragmentId: 'frag_warning',
+                        child: _LocationEntry(pin: p),
+                      )
+                    else
+                      _LocationEntry(pin: p),
+                  const SizedBox(height: 12),
+                  _RouteReconstructionCard(state: state),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -139,71 +108,387 @@ class MapsView extends StatelessWidget {
 }
 
 class _LocationEntry extends StatelessWidget {
-  const _LocationEntry({
-    required this.name,
-    required this.address,
-    required this.visits,
-    required this.lastVisit,
-    required this.icon,
-    required this.color,
-    this.isAlert = false,
-  });
-
-  final String name;
-  final String address;
-  final String visits;
-  final String lastVisit;
-  final IconData icon;
-  final Color color;
-  final bool isAlert;
+  const _LocationEntry({required this.pin});
+  final MapPin pin;
 
   @override
   Widget build(BuildContext context) {
+    final isAlert = pin.isAlert;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isAlert
-            ? color.withValues(alpha: 0.06)
+            ? const Color(0xFFFF453A).withValues(alpha: 0.06)
             : const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(12),
         border: isAlert
-            ? Border.all(color: color.withValues(alpha: 0.3))
+            ? Border.all(
+                color: const Color(0xFFFF453A).withValues(alpha: 0.3))
             : null,
       ),
       child: Row(
         children: [
           Container(
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
+              color: const Color(0xFF0A84FF).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(
+              isAlert ? Icons.warning_amber : Icons.place,
+              color: isAlert
+                  ? const Color(0xFFFF453A)
+                  : const Color(0xFF0A84FF),
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: TextStyle(
-                  color: isAlert ? color : Colors.white,
-                  fontSize: 14,
-                  fontWeight: isAlert ? FontWeight.w700 : FontWeight.w500,
-                )),
+                Text(pin.name,
+                    style: TextStyle(
+                      color: isAlert
+                          ? const Color(0xFFFF453A)
+                          : Colors.white,
+                      fontSize: 14,
+                      fontWeight: isAlert
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    )),
                 const SizedBox(height: 2),
-                Text(address, style: const TextStyle(
-                  color: Colors.white54, fontSize: 12,
-                )),
+                Text(pin.address,
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 12)),
                 const SizedBox(height: 2),
-                Text('$visits · Ostatnio: $lastVisit', style: const TextStyle(
-                  color: Colors.white38, fontSize: 11,
-                )),
+                Text('${pin.visitsLabel} · Ostatnio: ${pin.lastVisit}',
+                    style: const TextStyle(
+                        color: Colors.white38, fontSize: 11)),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
         ],
+      ),
+    );
+  }
+}
+
+class _RouteReconstructionCard extends StatefulWidget {
+  const _RouteReconstructionCard({required this.state});
+  final MapsState state;
+
+  @override
+  State<_RouteReconstructionCard> createState() =>
+      _RouteReconstructionCardState();
+}
+
+class _RouteReconstructionCardState extends State<_RouteReconstructionCard> {
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-expand if puzzle was solved earlier or partial progress exists.
+    if (widget.state.playerOrder.isNotEmpty ||
+        widget.state.isPuzzleSolved) {
+      _expanded = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: state.isPuzzleSolved
+              ? const Color(0xFF34C759).withValues(alpha: 0.4)
+              : const Color(0xFF2C2C2E),
+        ),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: state.isPuzzleSolved
+                          ? const Color(0xFF34C759)
+                              .withValues(alpha: 0.2)
+                          : const Color(0xFF0A84FF)
+                              .withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      state.isPuzzleSolved
+                          ? Icons.verified
+                          : Icons.alt_route,
+                      color: state.isPuzzleSolved
+                          ? const Color(0xFF34C759)
+                          : const Color(0xFF0A84FF),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          state.isPuzzleSolved
+                              ? 'Trasa zrekonstruowana'
+                              : 'Zrekonstruuj ostatni dzień',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          state.isPuzzleSolved
+                              ? 'Ułożona poprawnie. 17.05.2026.'
+                              : 'Przeciągnij ${state.routePins.length} '
+                                  'lokalizacji w kolejności chronologicznej.',
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.expand_less
+                        : Icons.expand_more,
+                    color: Colors.white54,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            child: _expanded
+                ? Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: _RouteReorderList(state: state),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteReorderList extends StatelessWidget {
+  const _RouteReorderList({required this.state});
+  final MapsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final ordered = state.playerOrder;
+    final remaining = state.shuffledRemainingPins;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (ordered.isEmpty && remaining.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Stuknij lokalizację poniżej, aby dodać ją do trasy.',
+              style: TextStyle(
+                  color: Colors.white54, fontSize: 12),
+            ),
+          ),
+
+        if (ordered.isNotEmpty)
+          ReorderableListView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: true,
+            // `onReorderItem` is the recommended replacement, but only
+            // landed in pre-release after Flutter 3.41 — keeping
+            // `onReorder` until our minimum Flutter SDK requires it.
+            // ignore: deprecated_member_use
+            onReorder: (oldIdx, newIdx) {
+              HapticFeedback.lightImpact();
+              final newList = List<String>.from(ordered);
+              final id = newList.removeAt(oldIdx);
+              final clamped =
+                  newIdx > oldIdx ? newIdx - 1 : newIdx;
+              newList.insert(clamped, id);
+              state.setPlayerOrder(newList);
+            },
+            children: [
+              for (var i = 0; i < ordered.length; i++)
+                _OrderedTile(
+                  key: ValueKey(ordered[i]),
+                  index: i + 1,
+                  pinId: ordered[i],
+                  state: state,
+                ),
+            ],
+          ),
+
+        if (remaining.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(0, 12, 0, 6),
+            child: Text(
+              'POZOSTAŁE',
+              style: TextStyle(
+                color: Colors.white38,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ),
+          for (final p in remaining)
+            _AddPinTile(pin: p, onAdd: () => state.togglePin(p.id)),
+        ],
+
+        if (state.isPuzzleSolved) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF34C759).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.check_circle,
+                    color: Color(0xFF34C759), size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Trasa zgadza się ze stempletami GPS i timestampami '
+                    'z Kalendarza.',
+                    style: TextStyle(
+                        color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _OrderedTile extends StatelessWidget {
+  const _OrderedTile({
+    super.key,
+    required this.index,
+    required this.pinId,
+    required this.state,
+  });
+
+  final int index;
+  final String pinId;
+  final MapsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final pin = state.pins.firstWhere((p) => p.id == pinId);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2C2C2E),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                color: Color(0xFF0A84FF),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '$index',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(pin.name,
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 13)),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close,
+                  color: Colors.white38, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => state.togglePin(pinId),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.drag_handle, color: Colors.white38, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddPinTile extends StatelessWidget {
+  const _AddPinTile({required this.pin, required this.onAdd});
+  final MapPin pin;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: InkWell(
+        onTap: onAdd,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2C2C2E).withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: const Color(0xFF2C2C2E).withValues(alpha: 0.7)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.add_circle_outline,
+                  color: Color(0xFF0A84FF), size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(pin.name,
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 13)),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

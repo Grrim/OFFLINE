@@ -34,7 +34,7 @@ class BrowserState extends ChangeNotifier {
     _load();
   }
 
-  static const String _kVisitedIds = 'browser.visited';
+  static const String _kVisitedIds = 'game.browser.visited';
 
   final PersistenceService? _persistence;
   final List<BrowserEntry> _entries = [];
@@ -42,12 +42,58 @@ class BrowserState extends ChangeNotifier {
 
   List<BrowserEntry> get entries => List.unmodifiable(_entries);
 
+  /// Whether private mode entries are visible. Persisted under
+  /// `game.browser.privateUnlocked`. Toggle via [unlockPrivate].
+  bool _privateUnlocked = false;
+  bool get isPrivateUnlocked => _privateUnlocked;
+
+  /// Hardcoded password for the private mode. Comes from N.'s
+  /// "Hasła Wi-Fi" note (Mruczek = jej kot, 2019 = rok urodzenia).
+  /// Hint surfaces in Nieznany dialogue after enough evidence is
+  /// gathered.
+  static const String _privatePassword = 'mruczek2019';
+
+  /// Wired in main.dart. Called once on first successful private unlock.
+  void Function()? onPrivateUnlocked;
+
+  /// Wired from main.dart. Called every time a player visits a browser
+  /// entry. Used to award evidence per-page.
+  void Function(String entryId)? onEntryVisited;
+
+  /// Try to unlock private mode with the given password. Returns true
+  /// on success.
+  bool tryUnlockPrivate(String password) {
+    if (_privateUnlocked) return true;
+    if (password.trim().toLowerCase() != _privatePassword) return false;
+    _privateUnlocked = true;
+    _persistence?.setBool(_kPrivateUnlocked, true);
+    notifyListeners();
+    onPrivateUnlocked?.call();
+    return true;
+  }
+
+  /// Public-only entries (everything where `isPrivate == false`).
+  List<BrowserEntry> get publicEntries =>
+      _entries.where((e) => !e.isPrivate).toList(growable: false);
+
+  /// Private-only entries (revealed only after [tryUnlockPrivate]).
+  List<BrowserEntry> get privateEntries =>
+      _entries.where((e) => e.isPrivate).toList(growable: false);
+
+  /// All entries currently visible to the player. Until private mode is
+  /// unlocked this returns just the public ones.
+  List<BrowserEntry> get visibleEntries =>
+      _privateUnlocked ? entries : publicEntries;
+
+  static const String _kPrivateUnlocked = 'game.browser.privateUnlocked';
+
   bool hasVisited(String id) => _visitedIds.contains(id);
 
   void markVisited(String id) {
     if (_visitedIds.add(id)) {
       _persistVisited();
       notifyListeners();
+      onEntryVisited?.call(id);
     }
   }
 
@@ -59,10 +105,12 @@ class BrowserState extends ChangeNotifier {
     final p = _persistence;
     if (p == null) return;
     _visitedIds.addAll(p.getStringList(_kVisitedIds));
+    _privateUnlocked = p.getBool(_kPrivateUnlocked);
   }
 
   void reset() {
     _visitedIds.clear();
+    _privateUnlocked = false;
     notifyListeners();
   }
 

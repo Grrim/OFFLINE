@@ -35,7 +35,7 @@ class FilesState extends ChangeNotifier {
     _load();
   }
 
-  static const String _kOpenedIds = 'files.opened';
+  static const String _kOpenedIds = 'game.files.opened';
 
   final PersistenceService? _persistence;
   final List<GameFile> _files = [];
@@ -60,6 +60,10 @@ class FilesState extends ChangeNotifier {
   /// Wired from main.dart. Called when the player opens their first file.
   void Function()? onFirstFileOpened;
 
+  /// Wired from main.dart. Called every time the player opens a file
+  /// (including the first). Used to award evidence per-file.
+  void Function(String fileId)? onFileOpened;
+
   static const int chapter2OpenThreshold = 4;
   bool _thresholdFired = false;
   bool _firstFileFired = false;
@@ -68,6 +72,7 @@ class FilesState extends ChangeNotifier {
     if (_openedIds.add(id)) {
       _persistOpened();
       notifyListeners();
+      onFileOpened?.call(id);
       _maybeFireFirstFile();
       _maybeFireThreshold();
     }

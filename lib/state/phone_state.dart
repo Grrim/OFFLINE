@@ -14,7 +14,7 @@ class PhoneState extends ChangeNotifier {
   }
 
   static const String _correctPin = '1984';
-  static const String _kIsUnlocked = 'phone.isUnlocked';
+  static const String _kIsUnlocked = 'game.phone.isUnlocked';
 
   final PersistenceService? _persistence;
 

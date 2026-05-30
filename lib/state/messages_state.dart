@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
+import '../services/l10n_service.dart';
 import '../services/persistence_service.dart';
 import 'notifications_state.dart';
 
@@ -36,10 +37,45 @@ class ChatMessage {
 }
 
 class DialogueChoice {
-  const DialogueChoice({required this.text, required this.nextNodeId});
+  const DialogueChoice({
+    required this.text,
+    required this.nextNodeId,
+    this.trustDeltas = const {},
+    this.requiresMinTrust = const {},
+    this.requiresMinEvidence,
+    this.requiresFlag,
+    this.hidden = false,
+    this.lockedReasonKey,
+  });
 
   final String text;
   final String nextNodeId;
+
+  /// NPC trust deltas applied when this choice is picked.
+  /// Example: `{'mama': -10, 'anita': 5}`. Clamped to [-100, +100] by
+  /// [TrustState].
+  final Map<String, int> trustDeltas;
+
+  /// Trust thresholds required for this choice to be available.
+  /// Example: `{'tomasz': 30}` means the player needs trust >= 30 with
+  /// Tomasz before this choice surfaces.
+  final Map<String, int> requiresMinTrust;
+
+  /// If set, the player's [EvidenceState.score] must be at least this
+  /// value for the choice to be available.
+  final int? requiresMinEvidence;
+
+  /// Optional gameplay flag id (e.g. 'inspected_forest_night',
+  /// 'route_reconstructed') the choice depends on.
+  final String? requiresFlag;
+
+  /// If true, the choice is invisible until its requirements are met.
+  /// If false, the choice renders disabled with [lockedReasonKey] tooltip.
+  final bool hidden;
+
+  /// Localised reason shown in the tooltip when a non-hidden gated choice
+  /// is shown but disabled. ARB key, not literal text.
+  final String? lockedReasonKey;
 }
 
 class DialogueNode {
@@ -65,6 +101,29 @@ class DialogueNode {
   /// after the NPC line on this node, opening the path to the TRUTH ending.
   final bool triggersJournalistHook;
 }
+
+/// Result of evaluating a [DialogueChoice] against current world state.
+/// Carries enough info to render the UI (visible/disabled/visible-active)
+/// and to drive the lockedReasonKey tooltip.
+class GatedChoice {
+  const GatedChoice({
+    required this.choice,
+    required this.isAvailable,
+    required this.isHidden,
+  });
+
+  final DialogueChoice choice;
+  final bool isAvailable;
+  final bool isHidden;
+
+  bool get isVisibleButLocked => !isAvailable && !isHidden;
+}
+
+/// External evaluator wired by the phone shell. The shell snapshots
+/// `TrustState`, `EvidenceState`, and any flag store, then provides this
+/// callback so [MessagesState] can gate choices without a direct
+/// dependency on those notifiers.
+typedef DialogueGateEvaluator = bool Function(DialogueChoice choice);
 
 class ChatThread {
   ChatThread({
@@ -105,23 +164,39 @@ class MessagesState extends ChangeNotifier {
   static const Duration _endingDelay = Duration(seconds: 3);
 
   /// Calculates a realistic typing delay based on message length.
-  /// Short messages (~20 chars) get ~1.2s, long ones (~150 chars) get ~3s.
+  /// Short messages (~20 chars) get ~2s, long ones (~150 chars) get ~5s.
   static Duration _typingDelayForText(String text) {
-    final chars = text.length.clamp(10, 200);
-    final ms = 800 + (chars * 12); // 800ms base + 12ms per character
-    return Duration(milliseconds: ms.clamp(1000, 3500));
+    final chars = text.length.clamp(10, 300);
+    final ms = 1500 + (chars * 25); // 1500ms base + 25ms per character
+    return Duration(milliseconds: ms.clamp(1500, 6000));
   }
 
-  static const String _kThreadProgress = 'messages.progress.v1';
+  static const String _kThreadProgress = 'game.messages.progress.v1';
 
   final PersistenceService? _persistence;
   final Map<String, ChatThread> _threads = {};
   String? _activeThreadId;
   bool _isNpcTyping = false;
+  bool _isProcessingChoice = false;
   String? _typingThreadId;
+  bool _isPaused = false;
+
+  /// Unique ID for the current game session. Incremented on [reset].
+  /// Mid-flight NPCs and Choice timers check this to avoid leaking
+  /// across game restarts.
+  int _gameSessionId = 0;
 
   NotificationsState? _notifications;
   void Function(String threadId)? _bannerNavigator;
+
+  /// External evaluator for choice availability. Wired by the phone
+  /// shell, references TrustState/EvidenceState/flags. If null, all
+  /// choices are treated as available (so tests don't need wiring).
+  DialogueGateEvaluator? _gateEvaluator;
+
+  /// Trust deltas application. Wired by the phone shell to forward to
+  /// TrustState. Null = no-op (test-friendly).
+  void Function(Map<String, int>)? _onTrustDeltas;
 
   /// Wired from the phone shell. Called when a dialogue node carries
   /// `triggersEndingId`, after the NPC line + the dramatic pause.
@@ -140,6 +215,17 @@ class MessagesState extends ChangeNotifier {
 
   void setBannerTapHandler(void Function(String threadId) handler) {
     _bannerNavigator = handler;
+  }
+
+  /// Wire the external evaluator that decides which choices are
+  /// available based on trust/evidence/flags.
+  void attachGateEvaluator(DialogueGateEvaluator evaluator) {
+    _gateEvaluator = evaluator;
+  }
+
+  /// Wire the trust deltas sink. The shell forwards to [TrustState.apply].
+  void attachTrustSink(void Function(Map<String, int>) sink) {
+    _onTrustDeltas = sink;
   }
 
   // ---------- Public API ----------
@@ -161,12 +247,37 @@ class MessagesState extends ChangeNotifier {
 
   bool get isNpcTyping => _isNpcTyping;
 
+  /// True if a player choice is currently being processed (from tap to 
+  /// first NPC message).
+  bool get isProcessingChoice => _isProcessingChoice;
+
   /// True if NPC is typing specifically in the given thread.
   bool isTypingInThread(String threadId) =>
       _isNpcTyping && _typingThreadId == threadId;
 
   int get totalUnread =>
       _threads.values.fold(0, (acc, t) => acc + t.unreadCount);
+
+  void setPaused(bool value) {
+    if (_isPaused == value) return;
+    _isPaused = value;
+    notifyListeners();
+  }
+
+  Future<void> wait(Duration duration, {int? sessionId}) async {
+    final sid = sessionId ?? _gameSessionId;
+    var remaining = duration;
+    while (remaining > Duration.zero) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (sid != _gameSessionId) return;
+      if (!_isPaused) {
+        remaining -= const Duration(milliseconds: 200);
+      }
+    }
+  }
+
+  /// The current unique session ID.
+  int get gameSessionId => _gameSessionId;
 
   /// True once the player has completed the "Nieznany" intro dialogue
   /// (reached the hint_files node). Used for soft-gating other apps.
@@ -194,6 +305,9 @@ class MessagesState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Raw list of currently presented choices. Backwards-compatible —
+  /// includes ALL choices on the active node regardless of gating.
+  /// UI should prefer [gatedChoices] which carries availability info.
   List<DialogueChoice> get currentChoices {
     final t = activeThread;
     if (t == null || !t.isInteractive || t.dialogueGraph == null) {
@@ -205,23 +319,72 @@ class MessagesState extends ChangeNotifier {
     return node?.choices ?? const [];
   }
 
+  /// Choices on the active node, evaluated against trust/evidence/flags.
+  /// Returns:
+  /// - all available + visible-but-locked choices in order;
+  /// - hidden choices (with `hidden: true` and unmet requirements) are
+  ///   omitted from the list entirely.
+  List<GatedChoice> get gatedChoices {
+    final raw = currentChoices;
+    if (raw.isEmpty) return const [];
+    final eval = _gateEvaluator;
+    final result = <GatedChoice>[];
+    for (final c in raw) {
+      final available = eval?.call(c) ?? true;
+      if (!available && c.hidden) continue;
+      result.add(GatedChoice(
+        choice: c,
+        isAvailable: available,
+        isHidden: false, // hidden+unavailable already filtered above
+      ));
+    }
+    return result;
+  }
+
   Future<void> selectChoice(DialogueChoice choice) async {
+    if (_isProcessingChoice) return;
     final t = activeThread;
     if (t == null) return;
     // Only block if NPC is typing in THIS thread.
     if (_isNpcTyping && _typingThreadId == t.id) return;
+    
+    // Refuse choices that are gated out.
+    final eval = _gateEvaluator;
+    if (eval != null && !eval(choice)) return;
+
+    _isProcessingChoice = true;
+    notifyListeners();
+
+    final sessionId = _gameSessionId;
+
+    // Apply trust deltas BEFORE we render the player line.
+    if (choice.trustDeltas.isNotEmpty) {
+      _onTrustDeltas?.call(choice.trustDeltas);
+    }
 
     t.messages.add(ChatMessage(
       sender: MessageSender.player,
       text: choice.text,
       timestamp: DateTime.now(),
     ));
+    
+    _save();
+    notifyListeners();
+
+    // NPC "breathing" delay.
+    await _wait(const Duration(milliseconds: 1500), sessionId);
+    if (sessionId != _gameSessionId) return;
+
     _isNpcTyping = true;
     _typingThreadId = t.id;
     notifyListeners();
-    _save();
 
-    await _runNode(t, choice.nextNodeId);
+    await _runNode(t, choice.nextNodeId, sessionId);
+    
+    if (sessionId == _gameSessionId) {
+      _isProcessingChoice = false;
+      notifyListeners();
+    }
   }
 
   // ---------- Phase 4 / 5 hooks ----------
@@ -270,51 +433,15 @@ class MessagesState extends ChangeNotifier {
   /// Upgrades Anita's thread to interactive with the TRUTH-path dialogue
   /// graph. Idempotent — safe to call on cold-load too.
   Future<void> triggerJournalistDialog({bool fromColdLoad = false}) async {
-    final graph = <String, DialogueNode>{
-      'opener': const DialogueNode(
-        id: 'opener',
-        choices: [
-          DialogueChoice(
-            text: 'Anita, to ja. N. zniknęła. Mam wszystkie jej dowody '
-                'na Helion-Bud i komendanta. Bierzecie to?',
-            nextNodeId: 'confirm',
-          ),
-          DialogueChoice(
-            text: 'Anita, jesteś tam? Sprawa jest gorąca, mam mało czasu.',
-            nextNodeId: 'confirm',
-          ),
-        ],
-      ),
-      'confirm': const DialogueNode(
-        id: 'confirm',
-        npcMessages: [
-          'O Boże. Wiedziałam, że coś jej się stało.',
-          'Wysyłaj wszystko co masz. Zdjęcia, notatki, nazwiska. Mam '
-              'bezpieczny kanał.',
-        ],
-        choices: [
-          DialogueChoice(
-            text: 'Wysyłam: zdjęcie z lasu, notatka N., wzmianki '
-                'o komendancie K. i Helion-Budzie.',
-            nextNodeId: 'send',
-          ),
-        ],
-      ),
-      'send': const DialogueNode(
-        id: 'send',
-        npcMessages: [
-          'Mam wszystko. Otwieram redaktora naczelnego.',
-          'Idziemy na pierwszą stronę. Jutro o 6:00 trafia do druku.',
-          'N. by była z ciebie dumna. Schowaj się gdzieś bezpiecznie '
-              'do rana.',
-        ],
-        triggersEndingId: 'truth',
-      ),
-    };
+    final dialogues = L10nService.instance.dialogues['threads'] as Map<String, dynamic>? ?? {};
+    final dData = dialogues['dziennikarka'] ?? {};
+    final dNodes = dData['nodes'] as Map<String, dynamic>? ?? {};
+    
+    final graph = _buildGraphFromData(dNodes);
 
     final journalistThread = ChatThread(
       id: 'dziennikarka',
-      contactName: 'Anita Z. (Gazeta)',
+      contactName: dData['contactName'] ?? 'Anita Z. (Gazeta)',
       avatarColor: 0xFFFFCC00,
       messages: [],
       dialogueGraph: graph,
@@ -327,9 +454,10 @@ class MessagesState extends ChangeNotifier {
     if (fromColdLoad) return;
 
     // Deliver an opener from Anita — fast, urgent.
+    final systemMsgs = dData['systemMessages'] as Map<String, dynamic>? ?? {};
     await deliverNpcMessage(
       'dziennikarka',
-      'Kto to?! Gdzie jest N.?! Masz jej telefon — powiedz mi co się stało!',
+      systemMsgs['intro_warning'] ?? 'Kto to?! Gdzie jest N.?! Masz jej telefon — powiedz mi co się stało!',
       delay: const Duration(seconds: 3),
     );
   }
@@ -338,101 +466,15 @@ class MessagesState extends ChangeNotifier {
   /// dialogue graph leading to the DAWN ending. The witness is
   /// referenced in the second locked note ("Plan B").
   Future<void> triggerWitnessDialog({bool fromColdLoad = false}) async {
-    final graph = <String, DialogueNode>{
-      'opener': const DialogueNode(
-        id: 'opener',
-        choices: [
-          DialogueChoice(
-            text: 'Tomasz? Drzewo, które padło na dachu.',
-            nextNodeId: 'recognise',
-          ),
-          DialogueChoice(
-            text: 'Tomasz, mam telefon N. Coś jej się stało.',
-            nextNodeId: 'cold_open',
-          ),
-        ],
-      ),
-      'cold_open': const DialogueNode(
-        id: 'cold_open',
-        npcMessages: [
-          'Skąd to wiesz? Skąd masz jej numer?',
-          'Zanim cokolwiek powiem, podaj mi hasło, które ze sobą '
-              'ustaliliśmy. N. mówiła ci?',
-        ],
-        choices: [
-          DialogueChoice(
-            text: 'Drzewo, które padło na dachu.',
-            nextNodeId: 'recognise',
-          ),
-          DialogueChoice(
-            text: 'Nie znam żadnego hasła. Po prostu mi pomóż.',
-            nextNodeId: 'reject',
-          ),
-        ],
-      ),
-      'reject': const DialogueNode(
-        id: 'reject',
-        npcMessages: [
-          'To nie tak działa. Jeśli nie znasz hasła, nie znałeś N.',
-          'Schowaj telefon. Jutro kup nową kartę i wyjedź z miasta.',
-          'Powodzenia.',
-        ],
-        // Soft fail — no ending, but the witness vanishes from the chat.
-      ),
-      'recognise': const DialogueNode(
-        id: 'recognise',
-        npcMessages: [
-          'Dobra. Czyli jednak.',
-          'Słuchaj uważnie - mam wszystko. Nagrania, kopie faktur, '
-              'zdjęcia. Wszystko, co zebrała plus to, co ja zebrałem '
-              'przez 2 lata po tym jak mnie wyrzucili z HB.',
-          'Jest tylko jedna ścieżka, która działa. Centralna komenda. '
-              'Prokurator dyżurny. Nie powiatowa. Nie miejska. '
-              'CENTRALNA.',
-        ],
-        choices: [
-          DialogueChoice(
-            text: 'Idę. Daj mi 2 godziny.',
-            nextNodeId: 'commit',
-          ),
-          DialogueChoice(
-            text: 'A jak komenda centralna też jest skompromitowana?',
-            nextNodeId: 'doubt',
-          ),
-        ],
-      ),
-      'doubt': const DialogueNode(
-        id: 'doubt',
-        npcMessages: [
-          'Nie jest. Sprawdziłem. K. nie ma tam żadnych powiązań.',
-          'Poza tym nie masz innej opcji. Albo idziesz, albo to się '
-              'wszystko rozejdzie po nas.',
-        ],
-        choices: [
-          DialogueChoice(
-            text: 'Dobra. Idę.',
-            nextNodeId: 'commit',
-          ),
-        ],
-      ),
-      'commit': const DialogueNode(
-        id: 'commit',
-        npcMessages: [
-          'Wyślij mi natychmiast wszystkie dowody przez Signal. Numer '
-              'masz w jej notatce.',
-          'Spotkamy się przed gmachem. Ja będę z dziennikarką.',
-          '...',
-          'Dzwoni do mnie prokurator. Mówi że właśnie dostał materiały '
-              'mailowo. Idą.',
-          'Udało się.',
-        ],
-        triggersEndingId: 'dawn',
-      ),
-    };
+    final dialogues = L10nService.instance.dialogues['threads'] as Map<String, dynamic>? ?? {};
+    final tData = dialogues['tomasz'] ?? {};
+    final tNodes = tData['nodes'] as Map<String, dynamic>? ?? {};
+
+    final graph = _buildGraphFromData(tNodes);
 
     final witnessThread = ChatThread(
       id: 'tomasz',
-      contactName: 'T.W. (sąsiad)',
+      contactName: tData['contactName'] ?? 'T.W. (sąsiad)',
       avatarColor: 0xFF5AC8FA,
       messages: [],
       dialogueGraph: graph,
@@ -444,11 +486,44 @@ class MessagesState extends ChangeNotifier {
 
     if (fromColdLoad) return;
 
+    final systemMsgs = tData['systemMessages'] as Map<String, dynamic>? ?? {};
     await deliverNpcMessage(
       'tomasz',
-      'Wiem że masz jej telefon. Widziałem światło w jej oknie wczoraj '
-          'wieczorem — ktoś tam był. To nie była ona. '
-          'Jeśli znasz hasło, napisz. Jeśli nie — schowaj telefon i uciekaj.',
+      systemMsgs['initial_warning'] ?? 'Wiem że masz jej telefon. Widziałem światło w jej oknie wczoraj wieczorem — ktoś tam był. To nie była ona. Jeśli znasz hasło, napisz. Jeśli nie — schowaj telefon i uciekaj.',
+      delay: const Duration(seconds: 3),
+    );
+  }
+
+  /// Chapter 3 hook — adds the prosecutor (Prokurator R.) thread,
+  /// gated behind one of the redaction-decoded passwords. Two
+  /// branches lead to two endings:
+  /// - public testimony → ŚWIADEK
+  /// - anonymous deposit → CIEŃ
+  Future<void> triggerProsecutorDialog({bool fromColdLoad = false}) async {
+    final dialogues = L10nService.instance.dialogues['threads'] as Map<String, dynamic>? ?? {};
+    final pData = dialogues['prokurator'] ?? {};
+    final pNodes = pData['nodes'] as Map<String, dynamic>? ?? {};
+
+    final graph = _buildGraphFromData(pNodes);
+
+    final prosecutorThread = ChatThread(
+      id: 'prokurator',
+      contactName: pData['contactName'] ?? 'Prokurator R. (centralna)',
+      avatarColor: 0xFF34C759,
+      messages: [],
+      dialogueGraph: graph,
+      currentNodeId: 'opener',
+      isInteractive: true,
+    );
+
+    ensureThread(prosecutorThread);
+
+    if (fromColdLoad) return;
+
+    final systemMsgs = pData['systemMessages'] as Map<String, dynamic>? ?? {};
+    await deliverNpcMessage(
+      'prokurator',
+      systemMsgs['initial_warning'] ?? 'Tu prokurator R. z Wydziału Spraw Wewnętrznych. Tomasz W. przekazał Pana dane. Mamy chwilę — proszę powiedzieć, jak chce Pan to rozegrać.',
       delay: const Duration(seconds: 3),
     );
   }
@@ -460,6 +535,7 @@ class MessagesState extends ChangeNotifier {
     String text, {
     Duration delay = _typingDelay,
   }) async {
+    final sessionId = _gameSessionId;
     // Auto-create thread if it doesn't exist (e.g. stalker, scheduled).
     if (!_threads.containsKey(threadId)) {
       String name;
@@ -485,13 +561,22 @@ class MessagesState extends ChangeNotifier {
 
     final thread = _threads[threadId]!;
 
+    // Prevent consecutive duplicate messages from the same sender in the same thread.
+    if (thread.messages.isNotEmpty) {
+      final last = thread.messages.last;
+      if (last.sender == MessageSender.npc && last.text == text) {
+        return;
+      }
+    }
+
     if (_activeThreadId == threadId) {
       _isNpcTyping = true;
       _typingThreadId = threadId;
       notifyListeners();
     }
 
-    await Future.delayed(delay);
+    await wait(delay, sessionId: sessionId);
+    if (sessionId != _gameSessionId) return;
 
     thread.messages.add(ChatMessage(
       sender: MessageSender.npc,
@@ -526,9 +611,20 @@ class MessagesState extends ChangeNotifier {
     ));
   }
 
+  Future<void> _wait(Duration duration, int sessionId) async {
+    var remaining = duration;
+    while (remaining > Duration.zero) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (sessionId != _gameSessionId) return;
+      if (!_isPaused) {
+        remaining -= const Duration(milliseconds: 200);
+      }
+    }
+  }
+
   // ---------- Internals ----------
 
-  Future<void> _runNode(ChatThread thread, String nodeId) async {
+  Future<void> _runNode(ChatThread thread, String nodeId, int sessionId) async {
     final graph = thread.dialogueGraph;
     if (graph == null) return;
     final node = graph[nodeId];
@@ -537,11 +633,16 @@ class MessagesState extends ChangeNotifier {
     thread.currentNodeId = nodeId;
 
     for (final line in node.npcMessages) {
+      // Breathing delay between messages or before the first message
+      await _wait(const Duration(milliseconds: 1200), sessionId);
+      if (sessionId != _gameSessionId) return;
+
       _isNpcTyping = true;
       _typingThreadId = thread.id;
       notifyListeners();
 
-      await Future.delayed(_typingDelayForText(line));
+      await _wait(_typingDelayForText(line), sessionId);
+      if (sessionId != _gameSessionId) return;
 
       thread.messages.add(ChatMessage(
         sender: MessageSender.npc,
@@ -562,20 +663,22 @@ class MessagesState extends ChangeNotifier {
 
     final auto = node.autoNextNodeId;
     if (auto != null) {
-      await _runNode(thread, auto);
+      await _runNode(thread, auto, sessionId);
       return;
     }
 
     // Ending fires after the last npc line in this node has been seen.
     final endingId = node.triggersEndingId;
     if (endingId != null) {
-      await Future.delayed(_endingDelay);
+      await _wait(_endingDelay, sessionId);
+      if (sessionId != _gameSessionId) return;
       onEndingTriggered?.call(endingId);
     }
 
     // Journalist hook — opens the path to the TRUTH ending.
     if (node.triggersJournalistHook) {
-      await Future.delayed(const Duration(seconds: 2));
+      await _wait(const Duration(seconds: 2), sessionId);
+      if (sessionId != _gameSessionId) return;
       onJournalistHookTriggered?.call();
     }
   }
@@ -583,11 +686,14 @@ class MessagesState extends ChangeNotifier {
   // ---------- Reset ----------
 
   void reset() {
+    _gameSessionId++;
     _threads.clear();
     _activeThreadId = null;
     _isNpcTyping = false;
+    _isProcessingChoice = false;
     _typingThreadId = null;
     _seed();
+    _save();
     notifyListeners();
   }
 
@@ -660,231 +766,86 @@ class MessagesState extends ChangeNotifier {
 
   void _seed() {
     final now = DateTime.now();
+    final dialogues = L10nService.instance.dialogues['threads'] as Map<String, dynamic>? ?? {};
+
+    // Helper to get thread data from JSON
+    Map<String, dynamic> getThreadData(String id) => dialogues[id] ?? {};
+
+    // 1. Mama
+    final mamaData = getThreadData('mama');
+    final mamaMsgs = (mamaData['messages'] as List? ?? []);
+    final mamaNodes = (mamaData['nodes'] as Map<String, dynamic>? ?? {});
 
     final mama = ChatThread(
       id: 'mama',
-      contactName: 'Mama',
+      contactName: mamaData['contactName'] ?? 'Mama',
       avatarColor: 0xFFE08AB0,
-      messages: [
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Pamiętasz, żeby wziąć leki na ciśnienie?',
-          timestamp: now.subtract(const Duration(days: 3, hours: 8)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Mruczek znowu rozdrapał kanapę. Ten kot mnie wykończy.',
-          timestamp: now.subtract(const Duration(days: 2, hours: 14)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Kochanie, Pani Halinka pytała o ciebie. Zadzwoń do niej '
-              'jak będziesz miała chwilę.',
-          timestamp: now.subtract(const Duration(days: 2, hours: 6)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Słyszałaś, że znowu coś robią w tym lesie za miastem? '
-              'Babcia mówi, że hałasy w nocy. Ciężkie maszyny.',
-          timestamp: now.subtract(const Duration(days: 1, hours: 20)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Czemu nie odpisujesz? Wszystko w porządku?',
-          timestamp: now.subtract(const Duration(days: 1, hours: 12)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Gdzie jesteś?',
-          timestamp: now.subtract(const Duration(days: 1, hours: 6)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Odezwij się do mnie!',
-          timestamp: now.subtract(const Duration(hours: 18)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Dzwoniłam do twojego biura. Powiedzieli, że nie pojawiłaś '
-              'się od piątku. Co się dzieje?',
-          timestamp: now.subtract(const Duration(hours: 10)),
-        ),
-      ],
+      messages: [], // Start empty for a fresh feel
       isInteractive: true,
-      dialogueGraph: {
-        'respond': const DialogueNode(
-          id: 'respond',
-          choices: [
-            DialogueChoice(
-              text: 'Mamo, to nie N. Znalazłem jej telefon. Ona zniknęła.',
-              nextNodeId: 'shock',
-            ),
-            DialogueChoice(
-              text: 'Wszystko OK, nie martw się. Odezwę się później.',
-              nextNodeId: 'lie',
-            ),
-          ],
-        ),
-        'shock': const DialogueNode(
-          id: 'shock',
-          npcMessages: [
-            'Co?? Jak to zniknęła?! Kto to pisze?!',
-            'Boże... Dzwonię na policję. Natychmiast.',
-          ],
-          choices: [
-            DialogueChoice(
-              text: 'NIE dzwoń na policję! Policja jest w to zamieszana!',
-              nextNodeId: 'warning',
-            ),
-          ],
-        ),
-        'warning': const DialogueNode(
-          id: 'warning',
-          npcMessages: [
-            'Co ty mówisz... Jak to zamieszana...',
-            'Dobrze. Nie dzwonię. Ale powiedz mi co się dzieje.',
-            'Błagam, powiedz mi że moja córka żyje.',
-          ],
-          choices: [
-            DialogueChoice(
-              text: 'Robię wszystko co mogę żeby ją znaleźć. Zaufaj mi.',
-              nextNodeId: 'trust',
-            ),
-          ],
-        ),
-        'trust': const DialogueNode(
-          id: 'trust',
-          npcMessages: [
-            'Dobrze... Dobrze. Ufam ci.',
-            'Proszę, bądź ostrożny. Kimkolwiek jesteś.',
-          ],
-        ),
-        'lie': const DialogueNode(
-          id: 'lie',
-          npcMessages: [
-            'Kochanie? Czemu piszesz tak dziwnie?',
-            'To nie brzmi jak ty. Co się dzieje?',
-          ],
-        ),
-      },
+      dialogueGraph: _buildGraphFromData(mamaNodes),
       currentNodeId: 'respond',
     );
 
-    const introLine =
-        'Widzę, że udało ci się odblokować jej telefon. Nie mamy wiele czasu. '
-        'Oni już wiedzą, że go masz.';
-
-    final nieznanyGraph = <String, DialogueNode>{
-      'intro': const DialogueNode(
-        id: 'intro',
-        choices: [
-          DialogueChoice(
-            text: 'Kim jesteś? Gdzie jest właścicielka tego telefonu?',
-            nextNodeId: 'branch_a',
-          ),
-          DialogueChoice(
-            text: 'To jakiś żart. Idę z tym na policję.',
-            nextNodeId: 'branch_b',
-          ),
-        ],
-      ),
-      'branch_a': const DialogueNode(
-        id: 'branch_a',
-        npcMessages: [
-          'Przyjacielem. A policja to ostatnie miejsce, do którego powinieneś '
-              'teraz iść, jeśli chcesz, żeby przeżyła.',
-        ],
-        autoNextNodeId: 'convergence',
-      ),
-      'branch_b': const DialogueNode(
-        id: 'branch_b',
-        npcMessages: [
-          'Policja? Myślisz, że dlaczego musiała uciekać? Nie bądź naiwny.',
-        ],
-        autoNextNodeId: 'convergence',
-      ),
-      'convergence': const DialogueNode(
-        id: 'convergence',
-        npcMessages: [
-          'Musisz mi zaufać. Wejdź w Galerię zdjęć. Znajdź fotografię zrobioną '
-              'zeszłej nocy. Musisz odszyfrować ukrytą na niej wiadomość, zanim '
-              'oni wyłączą ten telefon. Pospiesz się.',
-        ],
-        autoNextNodeId: 'hint_files',
-      ),
-      'hint_files': const DialogueNode(
-        id: 'hint_files',
-        npcMessages: [
-          'Jeszcze jedno — w Plikach są dokumenty, które zebrała. Faktury, '
-              'nagrania, lista koperty. Przeczytaj je. Zrozumiesz, z kim masz '
-              'do czynienia.',
-          'I nie próbuj dzwonić na policję z tego telefonu. Nie masz zasięgu. '
-              'Zresztą... policja to część problemu.',
-          'Teraz idź do Zdjęć. Znajdź to ciemne zdjęcie z lasu — zrobione '
-              'wczoraj w nocy. Kliknij na nie i naciśnij przycisk Info na dole. '
-              'Tam jest ukryty kod.',
-        ],
-      ),
-    };
+    // 2. Nieznany
+    final nData = getThreadData('nieznany');
+    final nMsgs = (nData['messages'] as List? ?? []);
+    final nNodes = (nData['nodes'] as Map<String, dynamic>? ?? {});
 
     final nieznany = ChatThread(
       id: 'nieznany',
-      contactName: 'Nieznany',
+      contactName: nData['contactName'] ?? 'Nieznany',
       avatarColor: 0xFF3A3A3C,
-      messages: [
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: introLine,
-          timestamp: now.subtract(const Duration(minutes: 2)),
-        ),
-      ],
-      dialogueGraph: nieznanyGraph,
+      messages: [], // Start empty for arrival logic
+      dialogueGraph: _buildGraphFromData(nNodes),
       currentNodeId: 'intro',
-      unreadCount: 1,
+      unreadCount: 0,
       isInteractive: true,
     );
 
-    // Dziennikarka — quiet thread that becomes the player's lifeline
-    // for the TRUTH ending. Her last message references Helion-Bud
-    // before the player even knows what that is.
+    // 3. Dziennikarka
+    final dData = getThreadData('dziennikarka');
+    final dMsgs = (dData['messages'] as List? ?? []);
+
     final dziennikarka = ChatThread(
       id: 'dziennikarka',
-      contactName: 'Anita Z. (Gazeta)',
+      contactName: dData['contactName'] ?? 'Anita Z. (Gazeta)',
       avatarColor: 0xFFFFCC00,
-      messages: [
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Cześć N., mam materiał gotowy do publikacji. Brakuje mi '
-              'tylko twojego zielonego światła i tych dokumentów co '
-              'mówiłaś.',
-          timestamp: now.subtract(const Duration(days: 4, hours: 3)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Redaktor naczelny się waha — boi się procesu od Helion-Bud. '
-              'Daj mi cokolwiek czarno na białym i puszczamy to w sobotę.',
-          timestamp: now.subtract(const Duration(days: 3, hours: 11)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'Jesteś?',
-          timestamp: now.subtract(const Duration(days: 2, hours: 4)),
-        ),
-        ChatMessage(
-          sender: MessageSender.npc,
-          text: 'N., zaczynam się martwić. Odezwij się jak tylko możesz.',
-          timestamp: now.subtract(const Duration(hours: 30)),
-        ),
-      ],
+      messages: [], // Start empty
       isInteractive: false,
     );
 
     _threads[mama.id] = mama;
     _threads[nieznany.id] = nieznany;
     _threads[dziennikarka.id] = dziennikarka;
+  }
 
-    // Stalker — anonymous threatening thread. Non-interactive.
-    // Messages are delivered by timed hooks in main.dart.
-    // NOT added to _threads yet — will appear only when first message arrives.
+  Map<String, DialogueNode> _buildGraphFromData(Map<String, dynamic> data) {
+    final graph = <String, DialogueNode>{};
+    data.forEach((id, nodeData) {
+      final npcMsgs = (nodeData['npcMessages'] as List? ?? []).cast<String>();
+      final choicesData = (nodeData['choices'] as List? ?? []);
+      final choices = choicesData.map((c) {
+        return DialogueChoice(
+          text: c['text'] as String,
+          nextNodeId: c['nextNodeId'] as String,
+          trustDeltas: (c['trustDeltas'] as Map? ?? {}).cast<String, int>(),
+          requiresMinTrust: (c['requiresMinTrust'] as Map? ?? {}).cast<String, int>(),
+          requiresMinEvidence: c['requiresMinEvidence'] as int?,
+          requiresFlag: c['requiresFlag'] as String?,
+          hidden: c['hidden'] as bool? ?? false,
+          lockedReasonKey: c['lockedReasonKey'] as String?,
+        );
+      }).toList();
+
+      graph[id] = DialogueNode(
+        id: id,
+        npcMessages: npcMsgs,
+        choices: choices,
+        autoNextNodeId: nodeData['autoNextNodeId'] as String?,
+        triggersEndingId: nodeData['triggersEndingId'] as String?,
+        triggersJournalistHook: nodeData['triggersJournalistHook'] as bool? ?? false,
+      );
+    });
+    return graph;
   }
 }

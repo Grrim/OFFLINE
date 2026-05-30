@@ -36,7 +36,7 @@ class PhotosState extends ChangeNotifier {
     _load();
   }
 
-  static const String _kInspectedIds = 'photos.inspected';
+  static const String _kInspectedIds = 'game.photos.inspected';
 
   final PersistenceService? _persistence;
   final List<PhotoItem> _photos = [];

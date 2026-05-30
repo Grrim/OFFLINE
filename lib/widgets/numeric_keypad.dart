@@ -22,7 +22,7 @@ class NumericKeypad extends StatefulWidget {
     required this.title,
     this.subtitle,
     this.icon,
-    this.errorMessage = 'Nieprawidłowy kod',
+    this.errorMessage = '',
     this.pinLength = 4,
     this.pulseHalo = false,
     this.haloColor = const Color(0xFFFFCC00),
@@ -117,7 +117,7 @@ class _NumericKeypadState extends State<NumericKeypad>
 
   void _backspace() {
     if (_busy || _pin.isEmpty) return;
-    HapticFeedback.selectionClick();
+    HapticFeedback.lightImpact(); // Changed from selectionClick for better consistency
     setState(() => _pin = _pin.substring(0, _pin.length - 1));
   }
 
@@ -403,24 +403,28 @@ class _KeyState extends State<_Key> {
     }
 
     return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
+      onTapDown: (_) {
+        if (disabled) return;
+        setState(() => _pressed = true);
+      },
       onTapCancel: () => setState(() => _pressed = false),
       onTapUp: (_) => setState(() => _pressed = false),
       onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 80),
-        width: 72,
-        height: 72,
+        width: 78, // Slightly larger targets
+        height: 78,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: disabled ? Colors.transparent : (_pressed ? pressed : base),
           border: widget.transparent
               ? null
-              : Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              : Border.all(color: Colors.white.withValues(alpha: 0.15)),
         ),
         alignment: Alignment.center,
         child: Opacity(
-          opacity: disabled ? 0.4 : 1,
+          opacity: disabled ? 0.3 : 1,
           child: content,
         ),
       ),

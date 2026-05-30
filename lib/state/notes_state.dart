@@ -30,8 +30,8 @@ class NotesState extends ChangeNotifier {
     _load();
   }
 
-  static const String _kUnlockedIds = 'notes.unlockedIds';
-  static const String _kHookFired = 'notes.hookFired';
+  static const String _kUnlockedIds = 'game.notes.unlockedIds';
+  static const String _kHookFired = 'game.notes.hookFired';
 
   final PersistenceService? _persistence;
   final List<NoteItem> _notes = [];

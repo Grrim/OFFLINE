@@ -140,7 +140,12 @@ enum GameSfx {
   unlockSuccess('audio/sfx_unlock.wav'),
   glitchBurst('audio/sfx_glitch.wav'),
   messageReceived('audio/sfx_message.wav'),
-  endingReveal('audio/sfx_ending.wav');
+  endingReveal('audio/sfx_ending.wav'),
+  shutterClick('audio/sfx_unlock.wav'), // Fallback
+  uiClick('audio/sfx_notification.wav'), // Fallback
+  errorBeep('audio/sfx_keypad_error.wav'), // Fallback
+  callRingtone('audio/sfx_notification.wav'), // Fallback
+  vibrationTable('audio/sfx_notification.wav'); // Fallback
 
   const GameSfx(this.path);
   final String path;

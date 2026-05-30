@@ -1,0 +1,438 @@
+{
+  "threads": {
+    "mama": {
+      "contactName": "Mom",
+      "messages": [
+        "Did you remember to take your blood pressure medicine?",
+        "Mruczek scratched the sofa again. That cat will be the death of me.",
+        "Honey, Mrs. Halinka was asking about you. Call her when you have a moment.",
+        "Did you hear they're doing something in that forest outside town again? Grandma says there are noises at night. Heavy machinery.",
+        "Why aren't you replying? Is everything okay?",
+        "Where are you?",
+        "Talk to me!",
+        "I called your office. They said you haven't shown up since Friday. What's going on?"
+      ],
+      "nodes": {
+        "respond": {
+          "choices": [
+            { "text": "Mom, this isn't N. I found her phone. She's missing.", "nextNodeId": "shock" },
+            { "text": "Everything's fine, don't worry. I'll talk to you later.", "nextNodeId": "lie" }
+          ]
+        },
+        "shock": {
+          "npcMessages": [
+            "What?? How do you mean missing?! Who is this?!",
+            "God... I'm calling the police. Right now."
+          ],
+          "choices": [
+            { "text": "DON'T call the police! They're involved in this!", "nextNodeId": "warning" }
+          ]
+        },
+        "warning": {
+          "npcMessages": [
+            "What are you saying... involved how...",
+            "Fine. I won't call. But tell me what's happening.",
+            "Please, tell me my daughter is alive."
+          ],
+          "choices": [
+            { "text": "I'm doing everything I can to find her. Trust me.", "nextNodeId": "trust" }
+          ]
+        },
+        "trust": {
+          "npcMessages": [
+            "Alright... alright. I trust you.",
+            "Please, be careful. Whoever you are."
+          ]
+        },
+        "lie": {
+          "npcMessages": [
+            "Honey? Why are you writing so weirdly?",
+            "This doesn't sound like you. What's going on?"
+          ]
+        }
+      },
+      "systemMessages": {
+        "stranger_danger": "Honey, there's a strange car in front of the house. Someone is hanging around the windows. Where are you?! Answer me!"
+      }
+    },
+    "nieznany": {
+      "contactName": "Unknown",
+      "messages": [
+        "I see you've managed to unlock her phone. We don't have much time. They already know you have it."
+      ],
+      "nodes": {
+        "intro": {
+          "choices": [
+            { "text": "Who are you? Where is the owner of this phone?", "nextNodeId": "branch_a" },
+            { "text": "This is a joke. I'm going to the police with this.", "nextNodeId": "branch_b" }
+          ]
+        },
+        "branch_a": {
+          "npcMessages": [
+            "A friend. And the police are the last place you should go right now if you want her to survive."
+          ],
+          "autoNextNodeId": "convergence"
+        },
+        "branch_b": {
+          "npcMessages": [
+            "The police? Why do you think she had to run? Don't be naive."
+          ],
+          "autoNextNodeId": "convergence"
+        },
+        "convergence": {
+          "npcMessages": [
+            "You have to trust me. Go to the Photo Gallery. Find a photo taken last night. You must decrypt the message hidden in it before they disable this phone. Hurry."
+          ],
+          "autoNextNodeId": "hint_files"
+        },
+        "hint_files": {
+          "npcMessages": [
+            "One more thing — there are documents she gathered in the Files. Invoices, recordings, a bribe list. Read them. You'll understand who you're dealing with.",
+            "And don't try calling the police from this phone. You have no signal. Besides... the police are part of the problem.",
+            "Now go to Photos. Find that dark forest photo — taken yesterday night. Click on it and press the Info button at the bottom. The code is hidden there."
+          ]
+        }
+      },
+      "systemMessages": {
+        "sheriff_nudge": "The Sheriff has reached out. You have a few minutes before he arrives. DO NOT answer him immediately — read the Files and Mail first. The more you know, the better response you'll choose.",
+        "plan_b_nudge": "One more thing — there is a second locked note, \"Plan B\". You'll find the code for it in the transcript of the recording in Files. Look for the time. It's important.",
+        "journalist_nudge": "Good choice. Anita will reach out — answer her. Send everything you have. It's the only chance.",
+        "clue_nudge": "Good job. See that code in the comment? 7309. Go into Notes — there's a locked note there. Enter that code. Read what N. left behind.",
+        "files_nudge": "See those invoices? 14 thousand every month. \"Consulting\". Now you understand why the police aren't looking for N.",
+        "browser_nudge": "Yes. That was her secret archive. The locker, the prosecutor, the stalking forum — it's all her research. Save those addresses. They might come in handy.",
+        "recorder_nudge": "Brilliant. Yes — that was them: Anita in the first one, Commander K. in the second, Tomasz B. (HB partner) in the third. Now Anita has her own face on tape. This is gold.",
+        "maps_nudge": "I have her route. House → office → cafe with Anita at 2 PM → parking at 9 PM → Kabacki Forest C-2 at 11:45 PM. Exactly where they were digging. She didn't disappear alone — she went to check the sector.",
+        "email_nudge": "You put together her last message. She didn't have time to send this one to Anita. Everything is there: 2 PM meeting, sector C-2, Signal password. Anita doesn't know it herself — you have to pass it on."
+      }
+    },
+    "dziennikarka": {
+      "contactName": "Anita Z. (Journalist)",
+      "messages": [
+        "Hey N., I've got the material ready for publication. I just need your green light and those documents you mentioned.",
+        "The editor-in-chief is hesitating — afraid of a lawsuit from Helion-Bud. Give me anything in black and white and we'll run it on Saturday.",
+        "Are you there?",
+        "N., I'm starting to worry. Reach out as soon as you can."
+      ],
+      "nodes": {
+        "opener": {
+          "choices": [
+            { "text": "Anita, it's me. N. is gone. I have all her evidence on Helion-Bud and the commander. Are you taking it?", "nextNodeId": "confirm", "trustDeltas": {"anita": 15} },
+            { "text": "Anita, are you there? This is urgent, I don't have much time.", "nextNodeId": "confirm", "trustDeltas": {"anita": 5} }
+          ]
+        },
+        "confirm": {
+          "npcMessages": [
+            "Oh God. I knew something happened to her.",
+            "Send everything you have. Photos, notes, names. I have a secure channel."
+          ],
+          "choices": [
+            { "text": "Sending: forest photo, N.'s note, mentions of Commander K. and Helion-Bud.", "nextNodeId": "send", "requiresMinEvidence": 80, "lockedReasonKey": "lockedReasonNeedEvidence", "trustDeltas": {"anita": 25} },
+            { "text": "I have nothing, but believe me — it's all true.", "nextNodeId": "no_evidence", "trustDeltas": {"anita": -20} }
+          ]
+        },
+        "no_evidence": {
+          "npcMessages": [
+            "Honey, I can't write 'believe me'. The editorial board will fire me.",
+            "Come back when you have at least one invoice or recording.",
+            "Good luck."
+          ]
+        },
+        "send": {
+          "npcMessages": [
+            "I have everything. Opening the editor-in-chief.",
+            "We're going on the front page. It hits the press tomorrow at 6:00 AM.",
+            "N. would be proud of you. Find somewhere safe to hide until morning."
+          ],
+          "triggersEndingId": "truth"
+        }
+      }
+    },
+    "szeryf": {
+      "contactName": "Sheriff",
+      "nodes": {
+        "opener": {
+          "choices": [
+            { "text": "I don't know what you're talking about, I found this phone in a park.", "nextNodeId": "choice_dumb", "trustDeltas": {"mama": -10, "anita": -15} },
+            { "text": "I know everything about Helion-Bud. Photos and notes are already secured.", "nextNodeId": "choice_defy", "trustDeltas": {"anita": 5, "tomasz": 10} },
+            { "text": "It's too late. Everything is on its way to the editorial office.", "nextNodeId": "choice_truth", "requiresMinEvidence": 50, "lockedReasonKey": "lockedReasonNeedEvidence", "trustDeltas": {"anita": 20, "tomasz": 5} },
+            { "text": "I can disappear. How much is it worth to you?", "nextNodeId": "choice_corrupt", "requiresMinEvidence": 50, "lockedReasonKey": "lockedReasonNeedEvidence", "trustDeltas": {"mama": -30, "anita": -50, "tomasz": -50, "nieznany": -40} },
+            { "text": "How many times have we had this same conversation?", "nextNodeId": "choice_cycle", "requiresFlag": "meta.cycle_available", "hidden": true }
+          ]
+        },
+        "choice_dumb": {
+          "npcMessages": ["Good joke. My man is already on his way to you. Don't move."],
+          "triggersEndingId": "caught"
+        },
+        "choice_defy": {
+          "npcMessages": ["Think you're clever? Take a look behind you."],
+          "triggersEndingId": "escape"
+        },
+        "choice_truth": {
+          "npcMessages": ["You're bluffing. You didn't make it in time."],
+          "triggersJournalistHook": true
+        },
+        "choice_corrupt": {
+          "npcMessages": [
+            "Ah. Smart boy.",
+            "50 thousand. Cash. Tomorrow at 6:00 AM at the station.",
+            "And you better not have a second copy. Because then you die."
+          ],
+          "triggersEndingId": "corruption"
+        },
+        "choice_cycle": {
+          "npcMessages": ["...", "What?", "What are you saying?", "...", "How do you know?", "Regardless. Let me see you."],
+          "triggersEndingId": "cycle"
+        }
+      },
+      "systemMessages": {
+        "initial_warning": "I know you're digging through that phone. Put it down before I come for it myself.",
+        "final_warning": "One minute. Either you answer, or I'm coming."
+      }
+    },
+    "tomasz": {
+      "contactName": "T.W. (Neighbor)",
+      "nodes": {
+        "opener": {
+          "choices": [
+            { "text": "Tomasz? The tree that fell on the roof.", "nextNodeId": "recognise", "trustDeltas": {"tomasz": 30} },
+            { "text": "Tomasz, I have N.'s phone. Something happened to her.", "nextNodeId": "cold_open", "trustDeltas": {"tomasz": 5} }
+          ]
+        },
+        "cold_open": {
+          "npcMessages": [
+            "How do you know that? How do you have her number?",
+            "Before I say anything, give me the password we established with each other. Did N. tell you?"
+          ],
+          "choices": [
+            { "text": "The tree that fell on the roof.", "nextNodeId": "recognise", "trustDeltas": {"tomasz": 25} },
+            { "text": "I don't know any password. Just help me.", "nextNodeId": "reject", "trustDeltas": {"tomasz": -50} }
+          ]
+        },
+        "reject": {
+          "npcMessages": [
+            "That's not how it works. If you don't know the password, you didn't know N.",
+            "Hide the phone. Tomorrow buy a new card and leave town.",
+            "Good luck."
+          ]
+        },
+        "recognise": {
+          "npcMessages": [
+            "Fine. So it was true.",
+            "Listen carefully - I have everything. Recordings, invoice copies, photos. Everything she gathered plus what I gathered over 2 years after they fired me from HB.",
+            "There is only one path that works. Central headquarters. Duty prosecutor. Not county. Not city. CENTRAL."
+          ],
+          "choices": [
+            { "text": "I'm going. Give me 2 hours.", "nextNodeId": "commit", "requiresMinEvidence": 120, "lockedReasonKey": "lockedReasonNeedEvidence", "trustDeltas": {"tomasz": 20, "anita": 10} },
+            { "text": "What if central headquarters is also compromised?", "nextNodeId": "doubt", "trustDeltas": {"tomasz": -5} }
+          ]
+        },
+        "doubt": {
+          "npcMessages": [
+            "It's not. I checked. K. has no connections there.",
+            "Besides, you have no other option. Either you go, or this all falls apart after us."
+          ],
+          "choices": [
+            { "text": "Fine. I'm going.", "nextNodeId": "commit", "requiresMinEvidence": 120, "lockedReasonKey": "lockedReasonNeedEvidence", "trustDeltas": {"tomasz": 15} }
+          ]
+        },
+        "commit": {
+          "npcMessages": [
+            "Send me all the evidence immediately via Signal. You have the number in her note.",
+            "We'll meet in front of the building. I'll be with the journalist.",
+            "...",
+            "The prosecutor is calling me. He says he just got the materials by email. They're moving.",
+            "We did it."
+          ],
+          "triggersEndingId": "dawn"
+        }
+      },
+      "systemMessages": {
+        "initial_warning": "I know you have her phone. I saw a light in her window last night — someone was there. It wasn't her. If you know the password, write it. If not — hide the phone and run."
+      }
+    },
+    "prokurator": {
+      "contactName": "Prosecutor R. (Central)",
+      "nodes": {
+        "opener": {
+          "choices": [
+            { "text": "I have evidence in the Helion-Bud and Commander K. case. I want to testify officially, under my own name.", "nextNodeId": "witness_path", "trustDeltas": {"anita": 15, "tomasz": 10} },
+            { "text": "I prefer to hand over the materials anonymously. No cameras, no names.", "nextNodeId": "shadow_path", "trustDeltas": {"anita": -5} },
+            { "text": "Can I count on witness protection?", "nextNodeId": "protection_q", "requiresFlag": "puzzle.signal_decoded", "lockedReasonKey": "lockedReasonNeedSignalDecoded" }
+          ]
+        },
+        "protection_q": {
+          "npcMessages": [
+            "Yes, we will provide it. Status of an anonymous state witness or family relocation — depending on what you choose.",
+            "But beware: full protection only applies to official witnesses. An anonymous deposit does not grant status."
+          ],
+          "choices": [
+            { "text": "In that case — I will testify officially.", "nextNodeId": "witness_path", "trustDeltas": {"anita": 20, "tomasz": 15, "mama": 10} },
+            { "text": "Thank you, but I prefer an anonymous deposit.", "nextNodeId": "shadow_path" }
+          ]
+        },
+        "witness_path": {
+          "npcMessages": [
+            "Good. Please report at 11:00 AM at the district prosecutor's office building, 28 Chocimska St. The journalist can be present.",
+            "Press conference at 11:30 AM. Your testimony will go live. In the afternoon we will detain K. and his people.",
+            "Good luck. We meet at 11:00 AM."
+          ],
+          "triggersEndingId": "witness"
+        },
+        "shadow_path": {
+          "npcMessages": [
+            "I understand. That's cautious — and also effective, though slower.",
+            "Send everything to our encrypted address. The case will proceed without your involvement. We will reveal the names of the compromised public only after confirming the materials.",
+            "I wish you peace. No one will know about you."
+          ],
+          "triggersEndingId": "shadow"
+        }
+      },
+      "systemMessages": {
+        "decoded": "I have your materials. Everything encrypted. Let's return to the conversation — a decision awaits you.",
+        "initial_warning": "This is Prosecutor R. from the Internal Affairs Department. Tomasz W. passed on your details. We have a moment — please tell me how you want to play this."
+      }
+    },
+    "stalker": {
+      "contactName": "Stalker",
+      "systemMessages": {
+        "i_see_you": "I see you.",
+        "night": "Dark at your place, isn't it?",
+        "evening": "Evening. Close the curtains.",
+        "day": "Day. Think you're safe?",
+        "loc_prefix": "I know where you are. Don't move.",
+        "loc_city": "${city}. ${district}. Don't move.",
+        "warning_phone": "You shouldn't have turned this on. This phone isn't yours.",
+        "last_warning": "I'm coming for you. Put the phone down. Last warning.",
+        "last_warning_city": "I'm coming to ${city}. Put the phone down. Last warning."
+      }
+    }
+  },
+  "intro": [
+    "23:52",
+    "",
+    "Walking home.",
+    "Dark. Cold.",
+    "",
+    "Something's glowing on the sidewalk.",
+    "",
+    "A phone.",
+    "Screen's cracked. Still warm.",
+    "",
+    "It's vibrating.",
+    "",
+    "Someone is typing.",
+    "",
+    "",
+    "I pick it up."
+  ],
+  "intro_skip": "tap to skip",
+  "recap": {
+    "title_sub": "Back after a break",
+    "title_main": "What's happened so far",
+    "continue": "Continue",
+    "chapter1": "Chapter 1 is underway — evening, shortly after N.'s disappearance.",
+    "chapter2": "You're in Chapter 2 — dawn after the night N. went missing.",
+    "chapter3": "Chapter 3 is underway — Prosecutor R. is waiting for a decision.",
+    "notes_secret": "You've unlocked N.'s secret note (PIN 7309) and know about the corruption at the county headquarters.",
+    "notes_plan_b": "You've also unlocked the \"Plan B\" note (PIN 1422) — you have Tomasz's contact and the authentication password.",
+    "files_progress": "You've read {count} out of {total} documents in the Files app.",
+    "photos_clues": "You've checked {count} photos with metadata (Info).",
+    "evidence_score": "Evidence: {score} pts collected.",
+    "browser_private": "You've unlocked the browser's private mode.",
+    "puzzle_email": "You've assembled N.'s deleted message from five fragments.",
+    "puzzle_voices": "You've matched voices from recordings to people from contacts.",
+    "puzzle_route": "You've reconstructed N.'s route from her last day.",
+    "puzzle_signal": "You've decrypted the Signal password — the channel with the prosecutor is open.",
+    "trust_tomasz_high": "Tomasz trusted you — he's waiting for the signal.",
+    "trust_tomasz_low": "Tomasz rejected you.",
+    "trust_anita_high": "Anita Z. believes in what you have — ready for publication.",
+    "trust_mama_low": "Mom is mad at you. She doesn't believe your explanations.",
+    "empty": "You don't remember much — the game is just beginning."
+  },
+  "contacts": {
+    "mama": "❤️",
+    "anita": "Signal! Not SMS. Investigative journalist, local newspaper.",
+    "tomasz": "Tomasz. No. 14, 2nd floor. Former HB employee. Password: \"the tree that fell on the roof\". I TRUST HIM.",
+    "praca": "Horizon Media Agency. Reception.",
+    "kasia": "Office Wi-Fi password — ask her.",
+    "cafe": "Table reservation. Wi-Fi: gosc.relaks",
+    "wet": "Vaccination — June!",
+    "tata": "",
+    "szeryf": "Commander K. DO NOT ANSWER. DO NOT CALL BACK. He knows who I am. He knows what I have."
+  },
+  "calendar": {
+    "mon": { "title": "Work — office", "subtitle": "Normal day", "detail": "Nothing suspicious. Usual Monday meeting." },
+    "tue": { "title": "Shopping", "subtitle": "milk, tomatoes, cat food", "detail": "Remember litter next time." },
+    "wed": { "title": "Selfie — Plac Zbawiciela", "subtitle": "Meeting a friend?", "detail": "It was nice to forget everything for a while." },
+    "thu": { "title": "Car outside the house", "subtitle": "Lights off, 2h under the window", "detail": "Dark sedan. Couldn't see the driver. They've been there since 10 PM. I'm scared." },
+    "fri_work": { "title": "Didn't show up for work", "subtitle": "Office: \"haven't seen her since morning\"", "detail": "Phone turned off." },
+    "fri_meeting": { "title": "Meeting: Anita Z. (Journalist)", "subtitle": "Cafe Relaks — ABSENT", "detail": "Anita waited for 2 hours." },
+    "sat_photo": { "title": "📷 Photo — Kabacki Forest", "subtitle": "Last photo in gallery", "detail": "Sector C-2." },
+    "sat_note": { "title": "📝 Note: \"IN CASE OF DISAPPEARANCE\"", "subtitle": "Last phone activity", "detail": "I wrote everything down." }
+  },
+  "meta": {
+    "hints": {
+      "chapter3_signal": "Prosecutor R. is waiting for confirmation. Open Signal on the home screen — the password is a word from N.'s notes plus the time of the first recording.",
+      "photos_clue": "Go to Photos. Look for a dark photo from the forest — click Info at the bottom.",
+      "notes_lock": "You have the code 7309 from the photo's metadata. Open Notes — there is a locked note there.",
+      "files_progress": "There are documents N. gathered in Files. Read them all — these are your hard evidence.",
+      "browser_private": "Private tabs in the browser are encrypted. You have the password in the notes: cat's name + birth year.",
+      "email_fragments": "There's an empty Trash in Mail. Fragments of N.'s message are scattered across other apps. Hold your finger on suspicious elements.",
+      "recorder_voices": "Recordings in the Recorder have anonymous voices. Match the context of the transcript with people from Contacts.",
+      "maps_route": "There's an option 'Reconstruct last day' in Maps. Arrange N.'s locations by the hours from the Calendar.",
+      "generic_ready": "You have everything now. Reach out to Anita or Tomasz."
+    },
+    "notifications": {
+      "ghost_title": "Location",
+      "ghost_body": "Someone checked your location",
+      "wifi_title": "Connected to network",
+      "wifi_body": "HB_Guest_5G — unencrypted connection",
+      "creepy_camera_title": "Camera",
+      "creepy_camera_body": "\"Unknown\" app obtained access to the camera",
+      "creepy_mic_title": "Privacy",
+      "creepy_mic_body": "Microphone is active in the background",
+      "creepy_unlock_title": "Security",
+      "creepy_unlock_body": "Unsuccessful remote unlock attempt",
+      "version_copied": "Version copied",
+      "achievement_app_name": "Achievement"
+    },
+    "ngp": {
+      "opener_prefix_1": "You're back. ",
+      "opener_prefix_multi": "Again. This is the {count}-th time. ",
+      "caught": "Last time they let you get caught. This time don't lie to the Sheriff too quickly.",
+      "escape": "Last time you escaped with evidence in your pocket. N. is still out there. Maybe this time we won't leave her there alone?",
+      "truth": "Anita published on Saturday. Good. But N. still hasn't returned. Try differently.",
+      "dawn": "You already found N. alive once. How did it end? What do you think?",
+      "corruption": "You took the envelope. Each of us has our price. Maybe this time you'll try not to have one?",
+      "solitude": "Last time you didn't trust anyone. You know Mom wrote to you? Open her messages. This time.",
+      "cycle": "You returned even after I explained everything to you.\nEither you're stubborn, or you don't remember.\nOr both.",
+      "default": "The phone is in your hands again. Do you remember anything from last time? Regardless — we start over.",
+      "meta_closing": "I know how it sounds. Just... do it better this time.",
+      "cycle_hint_1": "Listen. Did you notice it's always the same phone? Same Friday evening? I did.",
+      "cycle_hint_2": "If you ever stop and ask the Sheriff directly — maybe he'll let us both out of here. Try it. Next time he writes to you, you'll get a new option."
+    },
+    "prosecutor_bridge": {
+      "anita": "Anita: Anita called the prosecutor earlier than planned. He said he needs to talk to someone who has the materials. You.",
+      "tomasz": "Tomasz: The commander has been detained. But the investigators want to talk to you — directly. I'm giving you Prosecutor R.'s number."
+    }
+  },
+  "about": {
+    "title": "About the game",
+    "version": "Version {version}",
+    "privacy_policy": "Privacy Policy",
+    "privacy_body": "OFFLINE is a single-player game. We do not collect any personal data.\n\n• Progress and settings are saved exclusively locally on your device.\n• Error reports are opt-in and only contain stack trace + version — no identifiers.",
+    "privacy_link": "Full privacy policy",
+    "age_rating": "Age: 13+",
+    "age_body": "Themes: disappearance, corruption, stalking, psychological violence. No physical violence, sexual content, child abuse content.",
+    "open_source": "Open source",
+    "open_source_body": "OFFLINE uses the following open-source libraries:\n\n• Flutter (BSD-3-Clause)\n• provider (MIT)\n• shared_preferences (BSD-3-Clause)\n• audioplayers (MIT)\n• google_fonts (Apache-2.0)\n• fake_async (BSD-3-Clause)\n\nFull licenses are available in \"Open-source Licenses\".",
+    "audio_attribution": "Audio attributions",
+    "audio_body": "Sounds used in the game come from freesound.org (full license list in assets/audio/README.md) or are procedurally generated under MIT license.",
+    "contact": "Contact",
+    "contact_body": "For technical and privacy matters: grimssys@gmail.com\n\n© {year} GRIM ORIGIN STUDIO",
+    "licenses_button": "Open-source Licenses",
+    "footer": "OFFLINE — The Missing",
+    "unknown_version": "Unknown",
+    "link_error": "Cannot open link"
+  }
+}

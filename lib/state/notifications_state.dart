@@ -31,34 +31,45 @@ class AppNotification {
 /// dismiss method. If multiple fire close together they replace each other,
 /// which matches the "system push" feel we want.
 class NotificationsState extends ChangeNotifier {
-  AppNotification? _current;
+  final List<AppNotification> _notifications = [];
   Timer? _autoDismiss;
 
-  AppNotification? get current => _current;
+  AppNotification? get current => _notifications.isEmpty ? null : _notifications.first;
+  List<AppNotification> get all => List.unmodifiable(_notifications);
 
   /// Default visible time. Long enough to read the body comfortably.
   static const Duration _visibleFor = Duration(seconds: 5);
 
   void push(AppNotification n) {
-    _autoDismiss?.cancel();
-    _current = n;
+    _notifications.add(n);
     notifyListeners();
-    _autoDismiss = Timer(_visibleFor, dismiss);
+    // Only set auto-dismiss for the first notification in the queue
+    if (_notifications.length == 1) {
+      _startDismissTimer();
+    }
   }
 
   void dismiss() {
-    _autoDismiss?.cancel();
-    _autoDismiss = null;
-    if (_current != null) {
-      _current = null;
+    if (_notifications.isNotEmpty) {
+      _notifications.removeAt(0);
+      _autoDismiss?.cancel();
+      _autoDismiss = null;
       notifyListeners();
+      if (_notifications.isNotEmpty) {
+        _startDismissTimer();
+      }
     }
+  }
+
+  void _startDismissTimer() {
+    _autoDismiss?.cancel();
+    _autoDismiss = Timer(_visibleFor, dismiss);
   }
 
   void reset() {
     _autoDismiss?.cancel();
     _autoDismiss = null;
-    _current = null;
+    _notifications.clear();
     notifyListeners();
   }
 

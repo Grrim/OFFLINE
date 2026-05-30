@@ -1,0 +1,122 @@
+{
+  "threads": {
+    "mama": {
+      "contactName": "Maman",
+      "messages": [
+        "As-tu pensé à prendre tes médicaments pour la tension ?",
+        "Mruczek a encore griffé le canapé. Ce chat me tuera.",
+        "Ma chérie, Mme Halinka a demandé de tes nouvelles. Appelle-la quand tu as un moment.",
+        "As-tu entendu qu'ils font encore quelque chose dans cette forêt à l'extérieur de la ville ? Grand-mère dit qu'il y a des bruits la nuit. Des machines lourdes.",
+        "Pourquoi ne réponds-tu pas ? Est-ce que tout va bien ?",
+        "Où es-tu ?",
+        "Parle-moi !",
+        "J'ai appelé ton bureau. Ils ont dit que tu n'étais pas venue depuis vendredi. Qu'est-ce qui se passe ?"
+      ],
+      "nodes": {
+        "respond": {
+          "choices": [
+            { "text": "Maman, ce n'est pas N. J'ai trouvé son téléphone. Elle a disparu.", "nextNodeId": "shock" },
+            { "text": "Tout va bien, ne t'inquiète pas. On se parle plus tard.", "nextNodeId": "lie" }
+          ]
+        },
+        "shock": {
+          "npcMessages": [
+            "Quoi ?? Comment ça disparue ?! Qui est à l'appareil ?!",
+            "Mon Dieu... j'appelle la police. Tout de suite."
+          ],
+          "choices": [
+            { "text": "N'appelle PAS la police ! Ils sont impliqués là-dedans !", "nextNodeId": "warning" }
+          ]
+        },
+        "warning": {
+          "npcMessages": [
+            "Qu'est-ce que tu dis... impliqués comment...",
+            "D'accord. Je n'appellerai pas. Mais dis-moi ce qui se passe.",
+            "S'il te plaît, dis-moi que ma fille est en vie."
+          ],
+          "choices": [
+            { "text": "Je fais tout ce que je peux pour la trouver. Fais-moi confiance.", "nextNodeId": "trust" }
+          ]
+        },
+        "trust": {
+          "npcMessages": [
+            "D'accord... d'accord. Je te fais confiance.",
+            "S'il te plaît, fais attention. Qui que tu sois."
+          ]
+        },
+        "lie": {
+          "npcMessages": [
+            "Ma chérie ? Pourquoi écris-tu si bizarrement ?",
+            "Ça ne te ressemble pas. Qu'est-ce qui se passe ?"
+          ]
+        }
+      }
+    },
+    "nieznany": {
+      "contactName": "Inconnu",
+      "messages": [
+        "Je vois que tu as réussi à déverrouiller son téléphone. Nous n'avons pas beaucoup de temps. Ils savent déjà que tu l'as."
+      ],
+      "nodes": {
+        "intro": {
+          "choices": [
+            { "text": "Qui es-tu ? Où est la propriétaire de ce téléphone ?", "nextNodeId": "branch_a" },
+            { "text": "C'est une blague. Je vais à la police avec ça.", "nextNodeId": "branch_b" }
+          ]
+        },
+        "branch_a": {
+          "npcMessages": [
+            "Un ami. Et la police est le dernier endroit où tu devrais aller en ce moment si tu veux qu'elle survive."
+          ]
+        },
+        "branch_b": {
+          "npcMessages": [
+            "La police ? Pourquoi penses-tu qu'elle a dû fuir ? Ne sois pas naïf."
+          ]
+        },
+        "convergence": {
+          "npcMessages": [
+            "Tu dois me faire confiance. Va dans la Galerie photos. Trouve une photo prise hier soir. Tu dois décrypter le message qui y est caché avant qu'ils ne désactivent ce téléphone. Dépêche-toi."
+          ]
+        },
+        "hint_files": {
+          "npcMessages": [
+            "Encore une chose — dans les Fichiers, il y a des documents qu'elle a rassemblés. Factures, enregistrements, une liste de pots-de-vin. Lis-les. Tu comprendras à qui tu as affaire.",
+            "Et n'essaie pas d'appeler la police depuis ce téléphone. Tu n'as pas de signal. De plus... la police fait partie du problème.",
+            "Maintenant va dans Photos. Trouve cette photo de forêt sombre — prise hier soir. Clique dessus et appuie sur le bouton Info en bas. Le code y est caché."
+          ]
+        }
+      }
+    },
+    "dziennikarka": {
+      "contactName": "Anita Z. (Journaliste)",
+      "messages": [
+        "Salut N., j'ai le matériel prêt pour la publication. J'ai juste besoin de ton feu vert et des documents dont tu as parlé.",
+        "Le rédacteur en chef hésite — il a peur d'un procès de Helion-Bud. Donne-moi n'importe quoi de concret et on le publie samedi.",
+        "Tu es là ?",
+        "N., je commence à m'inquiéter. Contacte-moi dès que tu peux."
+      ]
+    }
+  },
+  "contacts": {
+    "mama": "❤️",
+    "anita": "Signal ! Pas de SMS. Journaliste d'investigation, journal local.",
+    "tomasz": "Tomasz. Nº 14, 2ème étage. Ancien employé de HB. Mot de passe : \"l'arbre qui est tombé sur le toit\". JE LUI FAIS CONFIANCE.",
+    "praca": "Agence Horizon Media. Réception.",
+    "kasia": "Mot de passe Wi-Fi du bureau — demande-lui.",
+    "cafe": "Réservation de table. Wi-Fi : gosc.relaks",
+    "wet": "Vaccination — Juin !",
+    "tata": "",
+    "szeryf": "Commandant K. NE RÉPONDS PAS. NE RAPPELLE PAS. Il sait qui je suis. Il sait ce que j'ai."
+  },
+  "calendar": {
+    "mon": { "title": "Travail — bureau", "subtitle": "Journée normale", "detail": "Rien de suspect. Réunion habituelle du lundi." },
+    "tue": { "title": "Courses", "subtitle": "lait, tomates, nourriture chat", "detail": "Se souvenir de la litière la prochaine fois." },
+    "wed": { "title": "Selfie — Plac Zbawiciela", "subtitle": "Rencontre avec une amie ?", "detail": "C'était agréable de tout oublier pendant un moment." },
+    "thu": { "title": "⚠️ Voiture devant la maison", "subtitle": "Phares éteints, 2h sous la fenêtre", "detail": "Berline sombre. Impossible de voir le conducteur. Ils sont là depuis 22h. J'ai peur." },
+    "fri_work": { "title": "N'est pas venue travailler", "subtitle": "Bureau : \"pas vue depuis ce matin\"", "detail": "Téléphone éteint." },
+    "fri_meeting": { "title": "Réunion : Anita Z. (Journaliste)", "subtitle": "Café Relaks — ABSENTE", "detail": "Anita a attendu 2 heures." },
+    "sat_photo": { "title": "📷 Photo — Forêt de Kabacki", "subtitle": "Dernière photo dans la galerie", "detail": "Secteur C-2." },
+    "sat_note": { "title": "📝 Note : \"EN CAS DE DISPARITION\"", "subtitle": "Dernière activité téléphone", "detail": "J'ai tout écrit." }
+  }
+}

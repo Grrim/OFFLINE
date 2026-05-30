@@ -1,0 +1,122 @@
+{
+  "threads": {
+    "mama": {
+      "contactName": "Mama",
+      "messages": [
+        "Hast du daran gedacht, deine Blutdruckmedikamente zu nehmen?",
+        "Mruczek hat das Sofa schon wieder zerkratzt. Diese Katze bringt mich noch um.",
+        "Schatz, Frau Halinka hat nach dir gefragt. Ruf sie an, wenn du einen Moment Zeit hast.",
+        "Hast du gehört, dass sie wieder etwas in diesem Wald außerhalb der Stadt machen? Oma sagt, nachts gäbe es Geräusche. Schwere Maschinen.",
+        "Warum antwortest du nicht? Ist alles okay?",
+        "Wo bist du?",
+        "Sprich mit mir!",
+        "Ich habe in deinem Büro angerufen. Sie sagten, du seist seit Freitag nicht mehr aufgetaucht. Was ist los?"
+      ],
+      "nodes": {
+        "respond": {
+          "choices": [
+            { "text": "Mama, das ist nicht N. Ich habe ihr Handy gefunden. Sie wird vermisst.", "nextNodeId": "shock" },
+            { "text": "Alles ist gut, mach dir keine Sorgen. Wir sprechen später.", "nextNodeId": "lie" }
+          ]
+        },
+        "shock": {
+          "npcMessages": [
+            "Was?? Wie meinst du, vermisst?! Wer ist da?!",
+            "Gott... Ich rufe die Polizei an. Sofort."
+          ],
+          "choices": [
+            { "text": "Ruf NICHT die Polizei an! Sie stecken da mit drin!", "nextNodeId": "warning" }
+          ]
+        },
+        "warning": {
+          "npcMessages": [
+            "Was sagst du da... wie mit drin stecken...",
+            "Schön. Ich werde nicht anrufen. Aber sag mir, was los ist.",
+            "Bitte sag mir, dass meine Tochter noch lebt."
+          ],
+          "choices": [
+            { "text": "Ich tue alles, was ich kann, um sie zu finden. Vertrau mir.", "nextNodeId": "trust" }
+          ]
+        },
+        "trust": {
+          "npcMessages": [
+            "In Ordnung... in Ordnung. Ich vertraue dir.",
+            "Bitte sei vorsichtig. Wer auch immer du bist."
+          ]
+        },
+        "lie": {
+          "npcMessages": [
+            "Schatz? Warum schreibst du so seltsam?",
+            "Das klingt gar nicht nach dir. Was ist los?"
+          ]
+        }
+      }
+    },
+    "nieznany": {
+      "contactName": "Unbekannt",
+      "messages": [
+        "Ich sehe, du hast es geschafft, ihr Handy zu entsperren. Wir haben nicht viel Zeit. Sie wissen bereits, dass du es hast."
+      ],
+      "nodes": {
+        "intro": {
+          "choices": [
+            { "text": "Wer bist du? Wo ist die Besitzerin dieses Handys?", "nextNodeId": "branch_a" },
+            { "text": "Das ist ein Witz. Ich gehe damit zur Polizei.", "nextNodeId": "branch_b" }
+          ]
+        },
+        "branch_a": {
+          "npcMessages": [
+            "Ein Freund. Und die Polizei ist der letzte Ort, an den du jetzt gehen solltest, wenn du willst, dass sie überlebt."
+          ]
+        },
+        "branch_b": {
+          "npcMessages": [
+            "Die Polizei? Warum glaubst du, musste sie fliehen? Sei nicht naiv."
+          ]
+        },
+        "convergence": {
+          "npcMessages": [
+            "Du musst mir vertrauen. Geh in die Fotogalerie. Finde ein Foto von gestern Abend. Du musst die darin versteckte Nachricht entschlüsseln, bevor sie dieses Handy deaktivieren. Beeil dich."
+          ]
+        },
+        "hint_files": {
+          "npcMessages": [
+            "Noch etwas — in den Dateien findest du Dokumente, die sie gesammelt hat. Rechnungen, Aufnahmen, eine Bestechungsliste. Lies sie. Du wirst verstehen, mit wem du es zu tun hast.",
+            "Und versuche nicht, die Polizei von diesem Handy aus anzurufen. Du hast keinen Empfang. Außerdem... ist die Polizei Teil des Problems.",
+            "Geh jetzt zu Fotos. Finde das dunkle Waldfoto — aufgenommen gestern Nacht. Klicke darauf und drücke den Info-Button unten. Der Code ist dort versteckt."
+          ]
+        }
+      }
+    },
+    "dziennikarka": {
+      "contactName": "Anita Z. (Journalistin)",
+      "messages": [
+        "Hey N., ich habe das Material für die Veröffentlichung bereit. Ich brauche nur noch dein grünes Licht und die Dokumente, die du erwähnt hast.",
+        "Der Chefredakteur zögert — er hat Angst vor einer Klage von Helion-Bud. Gib mir irgendetwas Schwarz auf Weiß und wir bringen es am Samstag.",
+        "Bist du da?",
+        "N., ich fange an, mir Sorgen zu machen. Melde dich, sobald du kannst."
+      ]
+    }
+  },
+  "contacts": {
+    "mama": "❤️",
+    "anita": "Signal! Nicht SMS. Investigative Journalistin, Lokalzeitung.",
+    "tomasz": "Tomasz. Nr. 14, 2. Stock. Ehemaliger HB-Mitarbeiter. Passwort: \"Der Baum, der auf das Dach fiel\". Ich VERTRAUE IHM.",
+    "praca": "Horizon Media Agency. Rezeption.",
+    "kasia": "Büro-WLAN-Passwort — frag sie.",
+    "cafe": "Tischreservierung. WLAN: gosc.relaks",
+    "wet": "Impfung — Juni!",
+    "tata": "",
+    "szeryf": "Kommandant K. NICHT ANTWORTEN. NICHT ZURÜCKRUFEN. Er weiß, wer ich bin. Er weiß, was ich habe."
+  },
+  "calendar": {
+    "mon": { "title": "Arbeit — Büro", "subtitle": "Normaler Tag", "detail": "Nichts Verdächtiges. Übliches Montags-Meeting." },
+    "tue": { "title": "Einkaufen", "subtitle": "Milch, Tomaten, Katzenfutter", "detail": "Nächstes Mal Katzenstreu nicht vergessen." },
+    "wed": { "title": "Selfie — Plac Zbawiciela", "subtitle": "Treffen mit einer Freundin?", "detail": "Es war schön, mal alles zu vergessen." },
+    "thu": { "title": "⚠️ Auto vor dem Haus", "subtitle": "Licht aus, 2 Std. unter dem Fenster", "detail": "Dunkle Limousine. Fahrer nicht erkennbar. Stehen dort seit 22 Uhr. Ich habe Angst." },
+    "fri_work": { "title": "Nicht zur Arbeit erschienen", "subtitle": "Büro: \"seit dem Morgen nicht gesehen\"", "detail": "Handy ausgeschaltet." },
+    "fri_meeting": { "title": "Treffen: Anita Z. (Journalistin)", "subtitle": "Cafe Relaks — NICHT ERSCHIENEN", "detail": "Anita hat 2 Stunden gewartet." },
+    "sat_photo": { "title": "📷 Foto — Kabacki-Wald", "subtitle": "Letztes Foto in der Galerie", "detail": "Sektor C-2." },
+    "sat_note": { "title": "📝 Notiz: \"FÜR DEN FALL DES VERSCHWINDENS\"", "subtitle": "Letzte Handy-Aktivität", "detail": "Ich habe alles aufgeschrieben." }
+  }
+}

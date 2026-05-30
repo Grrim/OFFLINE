@@ -63,11 +63,6 @@ class _GlitchOverlayState extends State<GlitchOverlay> {
   Future<void> _doBurst() async {
     if (!mounted || !widget.active) return;
 
-    // Play glitch sound on some bursts (not every one — would be annoying).
-    if (_rng.nextDouble() < 0.4) {
-      AudioService.instance.playSfx(GameSfx.glitchBurst);
-    }
-
     // Generate random glitch bars.
     setState(() {
       _glitching = true;

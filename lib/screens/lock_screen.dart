@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/l10n_extensions.dart';
 import '../state/phone_state.dart';
+import '../state/notifications_state.dart';
+import '../services/l10n_service.dart';
 import '../widgets/numeric_keypad.dart';
 import '../widgets/status_bar.dart';
 
@@ -53,18 +57,20 @@ class _LockScreenState extends State<LockScreen>
   }
 
   String _formatLongDate(DateTime t) {
-    const days = [
-      'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek',
-      'sobota', 'niedziela',
-    ];
-    const months = [
-      'stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca',
-      'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia',
-    ];
-    final day = days[(t.weekday - 1).clamp(0, 6)];
-    final month = months[(t.month - 1).clamp(0, 11)];
-    final capitalised = day[0].toUpperCase() + day.substring(1);
-    return '$capitalised, ${t.day} $month';
+    final locale = L10nService.instance.locale.toString();
+    // Using intl DateFormat for automatic localization
+    final dayName = DateFormat('EEEE', locale).format(t);
+    final day = t.day;
+    final monthName = DateFormat('MMMM', locale).format(t);
+    
+    // Capitalize first letter of day name
+    final capitalizedDay = dayName[0].toUpperCase() + dayName.substring(1);
+    
+    if (locale == 'pl') {
+      return '$capitalizedDay, $day $monthName';
+    } else {
+      return '$capitalizedDay, $monthName $day';
+    }
   }
 
   @override
@@ -75,7 +81,7 @@ class _LockScreenState extends State<LockScreen>
         children: [
           // Same wallpaper as home screen — like a real phone.
           Image.asset(
-            'assets/images/home_wallpaper.jpg',
+            'assets/images/lockscreen_wallpaper.jpg',
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(
               decoration: const BoxDecoration(
@@ -127,12 +133,74 @@ class _LockScreenState extends State<LockScreen>
                         color: Colors.white70,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 20),
+                    Expanded(
+                      child: Consumer<NotificationsState>(
+                        builder: (context, state, _) {
+                          final list = state.all;
+                          if (list.isEmpty) return const SizedBox.shrink();
+                          return ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: list.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final n = list[index];
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: n.iconBg,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(n.icon, color: Colors.white, size: 18),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            n.title,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            n.body,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
                     Transform.scale(
                       scale: scale,
                       alignment: Alignment.topCenter,
                       child: NumericKeypad(
-                        title: 'Wprowadź kod',
+                        title: context.l10n.lockEnterPin,
+                        errorMessage: context.l10n.lockWrongPin,
                         onSubmit: (pin) async {
                           return context.read<PhoneState>().tryUnlock(pin);
                         },
@@ -144,7 +212,7 @@ class _LockScreenState extends State<LockScreen>
                             (s) => s.failedAttempts) >=
                         3)
                       Text(
-                        'Podpowiedź: Orwell',
+                        context.l10n.lockHintOrwell,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.35),
                           fontSize: 11 * scale,

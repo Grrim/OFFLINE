@@ -136,8 +136,7 @@ class _PhotoDetailViewState extends State<PhotoDetailView> {
             onPressed: () {
               Navigator.pop(dialogCtx);
               HapticFeedback.heavyImpact();
-              // Glitch effect + error message + return to gallery.
-              AudioService.instance.playSfx(GameSfx.glitchBurst);
+              // Error message + return to gallery.
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()
                 ..showSnackBar(const SnackBar(

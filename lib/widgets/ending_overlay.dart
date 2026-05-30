@@ -4,13 +4,22 @@ import 'package:provider/provider.dart';
 
 import '../state/browser_state.dart';
 import '../state/chapter_state.dart';
+import '../state/email_state.dart';
 import '../state/ending_state.dart';
+import '../state/evidence_state.dart';
 import '../state/files_state.dart';
+import '../state/flags_state.dart';
+import '../state/maps_state.dart';
 import '../state/messages_state.dart';
+import '../state/new_game_plus_state.dart';
 import '../state/notes_state.dart';
 import '../state/notifications_state.dart';
 import '../state/phone_state.dart';
 import '../state/photos_state.dart';
+import '../state/recorder_state.dart';
+import '../state/settings_state.dart';
+import '../state/signal_puzzle_state.dart';
+import '../state/trust_state.dart';
 import '../services/audio_service.dart';
 import '../services/persistence_service.dart';
 
@@ -70,11 +79,31 @@ class _EndingScreenState extends State<_EndingScreen>
   Widget _buildStats(BuildContext context) {
     final files = context.read<FilesState>();
     final photos = context.read<PhotosState>();
+    final evidence = context.read<EvidenceState>();
+    final flags = context.read<FlagsState>();
+    final settings = context.read<SettingsState>();
 
     final filesRead = files.openedCount;
     final filesTotal = files.files.length;
-    final photosInspected = photos.photos.where((p) => p.isCluePhoto && photos.hasInspected(p.id)).length;
-    final photosClueTotal = photos.photos.where((p) => p.isCluePhoto).length;
+    final photosInspected = photos.photos
+        .where((p) => p.isCluePhoto && photos.hasInspected(p.id))
+        .length;
+    final photosClueTotal =
+        photos.photos.where((p) => p.isCluePhoto).length;
+    final maxEvidence =
+        EvidenceState.weights.values.fold<int>(0, (s, w) => s + w);
+    final puzzlesSolved = [
+      'puzzle.private_unlocked',
+      'puzzle.voices_matched',
+      'puzzle.route_reconstructed',
+      'puzzle.email_recovered',
+      'puzzle.signal_decoded',
+    ].where(flags.isSet).length;
+
+    final start = settings.currentRunStartedAt;
+    final elapsedLabel = start == null
+        ? '—'
+        : _formatDuration(DateTime.now().difference(start));
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -95,16 +124,39 @@ class _EndingScreenState extends State<_EndingScreen>
             ),
           ),
           const SizedBox(height: 10),
-          _StatRow(label: 'Pliki przeczytane', value: '$filesRead / $filesTotal'),
-          _StatRow(label: 'Wskazówki odkryte', value: '$photosInspected / $photosClueTotal'),
+          _StatRow(label: 'Czas rozgrywki', value: elapsedLabel),
+          _StatRow(
+              label: 'Pliki przeczytane',
+              value: '$filesRead / $filesTotal'),
+          _StatRow(
+              label: 'Wskazówki odkryte',
+              value: '$photosInspected / $photosClueTotal'),
+          _StatRow(
+              label: 'Dowody',
+              value: '${evidence.score} / $maxEvidence pkt'),
+          _StatRow(
+              label: 'Łamigłówki',
+              value: '$puzzlesSolved / 5'),
           _StatRow(label: 'Zakończenie', value: widget.ending.title),
         ],
       ),
     );
   }
 
+  /// Format an in-game elapsed duration like "12m 34s" / "1h 02m".
+  static String _formatDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes % 60;
+    final s = d.inSeconds % 60;
+    if (h > 0) {
+      return '${h}h ${m.toString().padLeft(2, '0')}m';
+    }
+    if (m > 0) return '${m}m ${s.toString().padLeft(2, '0')}s';
+    return '${s}s';
+  }
+
   Future<void> _restart(BuildContext context) async {
-    await PersistenceService.instance.clearAll();
+    await PersistenceService.instance.clearGameState();
     await AudioService.instance.reset();
     if (!context.mounted) return;
     context.read<EndingState>().reset();
@@ -115,6 +167,16 @@ class _EndingScreenState extends State<_EndingScreen>
     context.read<FilesState>().reset();
     context.read<BrowserState>().reset();
     context.read<ChapterState>().reset();
+    context.read<TrustState>().reset();
+    context.read<EvidenceState>().reset();
+    context.read<FlagsState>().reset();
+    context.read<EmailState>().reset();
+    context.read<RecorderState>().reset();
+    context.read<MapsState>().reset();
+    context.read<SignalPuzzleState>().reset();
+    // Reset wipes the gameplay; NG+ meta survives so player can opt
+    // back into a plus run from the boot choice screen.
+    context.read<NewGamePlusState>().leavePlusRun();
     context.read<PhoneState>().reset();
   }
 
@@ -131,8 +193,8 @@ class _EndingScreenState extends State<_EndingScreen>
               backgroundColor: Colors.black,
               body: SafeArea(
                 child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -199,13 +261,13 @@ class _EndingScreenState extends State<_EndingScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 32),
                         // Stats.
                         Opacity(
                           opacity: t,
                           child: _buildStats(context),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 32),
                         Opacity(
                           opacity: t,
                           child: OutlinedButton(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/l10n_service.dart';
 
 /// Cinematic intro sequence — typewriter text appearing line by line,
 /// simulating the player's inner monologue as they find the phone.
@@ -16,24 +17,8 @@ class IntroScreen extends StatefulWidget {
 }
 
 class _IntroScreenState extends State<IntroScreen> {
-  static const _lines = [
-    '23:52',
-    '',
-    'Wracam do domu.',
-    'Ciemno. Zimno.',
-    '',
-    'Coś świeci na chodniku.',
-    '',
-    'Telefon.',
-    'Ekran pęknięty. Jeszcze ciepły.',
-    '',
-    'Wibruje.',
-    '',
-    'Ktoś pisze.',
-    '',
-    '',
-    'Podnoszę go.',
-  ];
+  late List<String> _lines;
+  late String _skipLabel;
 
   final List<bool> _visible = [];
   int _currentLine = 0;
@@ -43,11 +28,19 @@ class _IntroScreenState extends State<IntroScreen> {
   @override
   void initState() {
     super.initState();
+    final dialogues = L10nService.instance.dialogues;
+    _lines = (dialogues['intro'] as List? ?? []).cast<String>();
+    _skipLabel = dialogues['intro_skip'] ?? 'skip';
+
     _visible.addAll(List.filled(_lines.length, false));
     _startSequence();
   }
 
   void _startSequence() {
+    if (_lines.isEmpty) {
+      _finish();
+      return;
+    }
     _timer = Timer.periodic(const Duration(milliseconds: 900), (timer) {
       if (_currentLine >= _lines.length) {
         timer.cancel();
@@ -55,14 +48,18 @@ class _IntroScreenState extends State<IntroScreen> {
         return;
       }
 
-      setState(() {
-        _visible[_currentLine] = true;
-        _currentLine++;
-      });
+      if (mounted) {
+        setState(() {
+          _visible[_currentLine] = true;
+          _currentLine++;
+        });
+      }
 
-      // Haptic on certain dramatic lines.
-      final line = _currentLine > 0 ? _lines[_currentLine - 1] : '';
-      if (line == 'Telefon.' || line == 'Wibruje.' || line == 'Podnoszę go.') {
+      // Haptic on certain dramatic lines (matching localized or original meanings).
+      final lineIndex = _currentLine - 1;
+      // We use index-based detection to be language agnostic if positions are preserved.
+      // Phone is usually at index 7, vibrates at 10, pick it up at 15.
+      if (lineIndex == 7 || lineIndex == 10 || lineIndex == 15) {
         HapticFeedback.mediumImpact();
       }
     });
@@ -103,23 +100,23 @@ class _IntroScreenState extends State<IntroScreen> {
       child: Scaffold(
         backgroundColor: Colors.black,
         body: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Spacer(),
+                const SizedBox(height: 60),
                 for (var i = 0; i < _lines.length; i++)
                   _buildLine(i),
-                const Spacer(flex: 2),
+                const SizedBox(height: 60),
                 // Skip hint.
                 AnimatedOpacity(
                   opacity: _done ? 0 : 0.3,
                   duration: const Duration(milliseconds: 300),
-                  child: const Center(
+                  child: Center(
                     child: Text(
-                      'dotknij aby pominąć',
-                      style: TextStyle(
+                      _skipLabel,
+                      style: const TextStyle(
                         color: Colors.white24,
                         fontSize: 11,
                       ),
@@ -142,10 +139,11 @@ class _IntroScreenState extends State<IntroScreen> {
     }
 
     final isTime = index == 0;
-    final isDramatic = line == 'Telefon.' ||
-        line == 'Wibruje.' ||
-        line == 'Ktoś pisze.' ||
-        line == 'Podnoszę go.';
+    // Dramatic lines are often at these positions.
+    final isDramatic = index == 7 ||
+        index == 10 ||
+        index == 12 ||
+        index == 15;
 
     return AnimatedOpacity(
       opacity: _visible[index] ? 1.0 : 0.0,
