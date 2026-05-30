@@ -155,7 +155,7 @@ class ZaginionaApp extends StatelessWidget {
         listenable: L10nService.instance,
         builder: (context, _) {
           return MaterialApp(
-            title: 'OFFLINE',
+            title: 'N. IS OFFLINE',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.dark,
             locale: L10nService.instance.locale,

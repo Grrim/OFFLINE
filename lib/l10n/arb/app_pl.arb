@@ -1,7 +1,7 @@
 {
     "@@locale": "pl",
 
-    "appTitle": "OFFLINE",
+    "appTitle": "N. IS OFFLINE",
     "@appTitle": { "description": "Tytuł aplikacji w trybie systemowym" },
 
     "lockEnterPin": "Wprowadź hasło",
