@@ -100,7 +100,7 @@ class _AboutViewState extends State<AboutView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'N. IS OFFLINE',
+                      'N. Is Offline',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 32,
@@ -194,7 +194,7 @@ class _AboutViewState extends State<AboutView> {
                             ));
                         },
                         child: Text(
-                          _l10n('footer', fallback: 'N. IS OFFLINE — Zaginiona'),
+                          _l10n('footer', fallback: 'N. Is Offline — Zaginiona'),
                           style: const TextStyle(
                               color: Colors.white24,
                               fontSize: 11,

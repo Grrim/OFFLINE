@@ -1,7 +1,7 @@
 {
     "@@locale": "en",
 
-    "appTitle": "N. IS OFFLINE",
+    "appTitle": "N. Is Offline",
     "lockEnterPin": "Enter Passcode",
     "lockHelperHint": "Enter the 4-digit code to continue.",
     "lockWrongPin": "Incorrect Passcode",
